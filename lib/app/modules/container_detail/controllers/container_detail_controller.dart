@@ -169,7 +169,7 @@ class ContainerDetailController extends GetxController {
         '\x1b[33mContainer is ${status?.status.displayName.toLowerCase()}. Showing logs...\x1b[0m\n',
       );
     }
-      _startLogsStream();
+    _startLogsStream();
   }
 
   Future<void> startContainer() async {
@@ -254,7 +254,7 @@ class ContainerDetailController extends GetxController {
     try {
       final configPath = dboxController.getConfigPath();
       final command =
-          'DBOX_CONFIG=$configPath ${dboxController.getRootPath()}/bin/dbox logs -f ${containerName.value}';
+          'DBOX_CONFIG=$configPath exec ${dboxController.getRootPath()}/bin/dbox logs -f ${containerName.value}';
 
       logger.i('Starting logs process: $command');
 

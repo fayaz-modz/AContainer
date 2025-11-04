@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:acontainer/app/controllers/command_controller.dart';
 import 'package:acontainer/app/models/container.dart';
+import 'package:acontainer/app/utils/logger.dart';
+import 'package:flutter_pty/flutter_pty.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
@@ -245,5 +248,31 @@ class DboxController extends GetxController {
     final command =
         'DBOX_CONFIG=$configPath exec ${getRootPath()}/bin/dbox logs -f $name';
     yield* CommandController.runRootStream(command);
+  }
+
+  Pty? attach(String name, {String? shell}) {
+    final configPath = getConfigPath();
+    String command;
+    
+    if (shell != null) {
+      if (name.isNotEmpty) {
+        // Execute shell inside container
+        command =
+            'su -c "DBOX_CONFIG=$configPath exec ${getRootPath()}/bin/dbox exec $name -- $shell"';
+      } else {
+        // Execute shell directly with dbox environment
+        final binPath = '${getRootPath()}/bin';
+        final currentPath = Platform.environment['PATH'] ?? '';
+        command =
+            'su -c "PATH=$currentPath:$binPath DBOX_CONFIG=$configPath exec $shell"';
+      }
+    } else {
+      // Attach to container
+      command =
+          'su -c "DBOX_CONFIG=$configPath exec ${getRootPath()}/bin/dbox attach $name"';
+    }
+    
+    Logger().i('Starting PTY with shell command: su -c \\"$command\\"');
+    return Pty.start("sh", arguments: ["-c", command]);
   }
 }

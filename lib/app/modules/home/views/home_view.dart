@@ -15,7 +15,21 @@ class HomeView extends GetView<HomeController> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('AContainer'), centerTitle: false),
+      appBar: AppBar(
+        title: const Text('AContainer'),
+        centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.terminal),
+            onPressed: () {
+              Get.toNamed(Routes.TERMINAL, arguments: {
+                'containerName': '',
+                'pty': '/system/bin/sh',
+              });
+            },
+          ),
+        ],
+      ),
       body: Obx(() {
         if (controller.loading.value) {
           return Center(

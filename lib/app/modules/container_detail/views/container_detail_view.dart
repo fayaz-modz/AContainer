@@ -13,13 +13,13 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
   @override
   Widget build(BuildContext context) {
     final dboxController = Get.find<DboxController>();
-    final logger = Logger('ContainerDetailView');
+    // final logger = Logger('ContainerDetailView');
 
     // Debug: Check if controller is properly initialized
-    logger.d(
-      'ContainerDetailView - build: controller.containerName = ${controller.containerName.value}',
-    );
-    logger.d('ContainerDetailView - build: Get.arguments = ${Get.arguments}');
+    // logger.d(
+    //   'ContainerDetailView - build: controller.containerName = ${controller.containerName.value}',
+    // );
+    // logger.d('ContainerDetailView - build: Get.arguments = ${Get.arguments}');
 
     // Manually initialize the controller if it hasn't been initialized
     if (controller.containerName.value.isEmpty && Get.arguments != null) {
@@ -29,9 +29,9 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
       controller.showCreationLogs.value =
           args['showCreationLogs'] as bool? ?? false;
 
-      logger.d('ContainerDetailView - manual initialization:');
-      logger.d('  containerName: ${controller.containerName.value}');
-      logger.d('  containerInfo: ${controller.containerInfo.value}');
+      // logger.d('ContainerDetailView - manual initialization:');
+      // logger.d('  containerName: ${controller.containerName.value}');
+      // logger.d('  containerInfo: ${controller.containerInfo.value}');
 
       if (controller.containerName.value.isNotEmpty) {
         controller.loadContainerStatus();
@@ -304,11 +304,23 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: null, // Will be implemented later
+                      onPressed: isRunning
+                          ? () {
+                              Get.toNamed(
+                                '/terminal',
+                                arguments: {
+                                  'containerName':
+                                      controller.containerName.value,
+                                },
+                              );
+                            }
+                          : null,
                       child: Text(
                         'Attach',
                         style: TextStyle(
-                          color: colorScheme.onSurface.withValues(alpha: 0.38),
+                          color: isRunning
+                              ? null
+                              : colorScheme.onSurface.withValues(alpha: 0.38),
                         ),
                       ),
                     ),
@@ -366,7 +378,9 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Attach functionality will be available in future updates',
+                          isRunning
+                              ? 'Click Attach to open a full-screen terminal connection'
+                              : 'Start the container to enable terminal attachment',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),

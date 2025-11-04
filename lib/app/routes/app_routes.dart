@@ -6,6 +6,7 @@ abstract class Routes {
   static const HOME = _Paths.HOME;
   static const CREATE_CONTAINER = _Paths.CREATE_CONTAINER;
   static const CONTAINER_DETAIL = _Paths.CONTAINER_DETAIL;
+  static const TERMINAL = _Paths.TERMINAL;
 }
 
 abstract class _Paths {
@@ -13,4 +14,5 @@ abstract class _Paths {
   static const HOME = '/home';
   static const CREATE_CONTAINER = '/create-container';
   static const CONTAINER_DETAIL = '/container-detail';
+  static const TERMINAL = '/terminal';
 }
