@@ -34,7 +34,9 @@ class TerminalView extends GetView<TerminalController> {
         canPop: true,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) {
-            terminalController.disconnect();
+            if (terminalController.closeOnPageClose.value) {
+              terminalController.disconnect();
+            }
             _resetSystemUiStyle();
           }
         },

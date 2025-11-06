@@ -5,10 +5,15 @@ import 'package:acontainer/app/modules/terminal/controllers/terminal_controller.
 import 'package:get/get.dart';
 
 class TerminalSession {
+  int id;
   ContainerInfo container;
   TerminalController controller;
 
-  TerminalSession({required this.container, required this.controller});
+  TerminalSession({
+    required this.id,
+    required this.container,
+    required this.controller,
+  });
 }
 
 class TerminalSessionController extends GetxController {
@@ -52,6 +57,7 @@ class TerminalSessionController extends GetxController {
 
     // Create the session
     final session = TerminalSession(
+      id: id,
       container: container,
       controller: terminalController,
     );

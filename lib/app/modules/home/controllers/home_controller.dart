@@ -8,6 +8,7 @@ class HomeController extends GetxController {
   final dbox = Get.find<DboxController>();
   Rx<bool> envOk = false.obs;
   Rx<bool> loading = false.obs;
+  RxInt currentBottomNavIndex = 0.obs;
 
   RxList<ContainerInfo> get containers => dbox.containers;
 
