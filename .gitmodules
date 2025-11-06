@@ -1,0 +1,3 @@
+[submodule "xterm.dart"]
+	path = xterm.dart
+	url = https://github.com/fayaz-modz/xterm.dart.git

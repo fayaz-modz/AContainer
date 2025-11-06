@@ -14,6 +14,7 @@ class TerminalController extends GetxController {
   final DboxController dbox = Get.find<DboxController>();
   final terminalThemeController = TerminalThemeController.instance;
   final logger = Logger('TerminalController');
+  final closeOnPageClose = true.obs;
 
   final terminal = xterm.Terminal(
     maxLines: 10000,
@@ -207,9 +208,16 @@ class TerminalController extends GetxController {
 
   @override
   void onClose() {
-    disconnect();
-    terminalController.dispose();
+    if (closeOnPageClose.value) {
+      disposeTerm();
+    }
     super.onClose();
+  }
+
+  Future<void> disposeTerm() async {
+    logger.i('Disposing terminal controller');
+    await disconnect();
+    terminalController.dispose();
   }
 
   @override

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:acontainer/app/models/container.dart';
 import 'package:acontainer/app/controllers/dbox_controller.dart';
+import 'package:acontainer/app/controllers/terminal_session_controller.dart';
 import 'package:acontainer/app/views/logs_view.dart';
 
 import '../controllers/container_detail_controller.dart';
@@ -309,11 +310,24 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
                     child: OutlinedButton(
                       onPressed: isRunning
                           ? () {
+                              final sessionController =
+                                  Get.find<TerminalSessionController>();
+                              final containerInfo =
+                                  controller.containerInfo.value ??
+                                  ContainerInfo(
+                                    name: controller.containerName.value,
+                                    image: 'unknown',
+                                    state: currentState,
+                                    created: DateTime.now().toIso8601String(),
+                                  );
+
+                              final session = sessionController
+                                  .getOrCreateSession(containerInfo);
+
                               Get.toNamed(
                                 '/terminal',
                                 arguments: {
-                                  'containerName':
-                                      controller.containerName.value,
+                                  'controller': session.controller,
                                 },
                               );
                             }
@@ -381,7 +395,9 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Expanded(child: SizedBox()), // Empty space for alignment
+                  const Expanded(
+                    child: SizedBox(),
+                  ), // Empty space for alignment
                 ],
               ),
 

@@ -6,12 +6,24 @@ import 'package:xterm/xterm.dart' as xterm;
 import '../controllers/terminal_controller.dart';
 
 class TerminalView extends GetView<TerminalController> {
-  const TerminalView({super.key});
+  final TerminalController? _terminalController;
+
+  const TerminalView({super.key, TerminalController? terminalController})
+    : _terminalController = terminalController;
+
+  @override
+  TerminalController get controller => _terminalController ?? super.controller;
 
   @override
   Widget build(BuildContext context) {
+    // Get controller from arguments if provided, otherwise use injected controller
+    final args = Get.arguments as Map<String, dynamic>?;
+    final TerminalController terminalController =
+        args?['controller'] as TerminalController? ?? controller;
+
     return Obx(() {
-      final terminalTheme = controller.terminalThemeController.terminalTheme;
+      final terminalTheme =
+          terminalController.terminalThemeController.terminalTheme;
 
       // Apply system UI styling to match terminal theme after frame
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -22,8 +34,7 @@ class TerminalView extends GetView<TerminalController> {
         canPop: true,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) {
-            controller.disconnect();
-            // Reset system UI styling when leaving terminal
+            terminalController.disconnect();
             _resetSystemUiStyle();
           }
         },
@@ -34,7 +45,7 @@ class TerminalView extends GetView<TerminalController> {
               children: [
                 // Output paused indicator
                 Obx(
-                  () => controller.isOutputPaused.value
+                  () => terminalController.isOutputPaused.value
                       ? Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 4),
@@ -55,42 +66,42 @@ class TerminalView extends GetView<TerminalController> {
                 Expanded(
                   child: GestureDetector(
                     onScaleStart: (details) {
-                      controller.initialFontSize =
-                          controller.fontSizeNotifier.value;
+                      terminalController.initialFontSize =
+                          terminalController.fontSizeNotifier.value;
                     },
                     onScaleUpdate: (details) {
                       final newFontSize =
-                          controller.initialFontSize * details.scale;
-                      controller.fontSizeNotifier.value = newFontSize.clamp(
-                        8.0,
-                        24.0,
-                      );
+                          terminalController.initialFontSize * details.scale;
+                      terminalController.fontSizeNotifier.value = newFontSize
+                          .clamp(8.0, 24.0);
                     },
                     child: xterm.TerminalView(
                       key: Key('term'),
-                      controller.terminal,
-                      controller: controller.terminalController,
+                      terminalController.terminal,
+                      controller: terminalController.terminalController,
                       simulateScroll: false,
                       backgroundOpacity: 1.0,
-                      theme: controller.terminalThemeController.terminalTheme,
+                      theme: terminalController
+                          .terminalThemeController
+                          .terminalTheme,
                       textStyle: xterm.TerminalStyle(
-                        fontSize: controller.fontSizeNotifier.value,
+                        fontSize: terminalController.fontSizeNotifier.value,
                         fontFamily: 'JetBrains Mono',
                       ),
                       onSecondaryTapDown: (details, offset) async {
                         final selection =
-                            controller.terminalController.selection;
+                            terminalController.terminalController.selection;
                         if (selection != null) {
-                          final text = controller.terminal.buffer.getText(
-                            selection,
-                          );
-                          controller.terminalController.clearSelection();
+                          final text = terminalController.terminal.buffer
+                              .getText(selection);
+                          terminalController.terminalController
+                              .clearSelection();
                           await Clipboard.setData(ClipboardData(text: text));
                         } else {
                           final data = await Clipboard.getData('text/plain');
                           final text = data?.text;
                           if (text != null) {
-                            controller.terminal.paste(text);
+                            terminalController.terminal.paste(text);
                           }
                         }
                       },
@@ -102,24 +113,16 @@ class TerminalView extends GetView<TerminalController> {
                   color: terminalTheme.background,
                   child: Column(
                     children: [
-                      _buildExtraKeysRow([
-                        'ESC',
-                        '/',
-                        '-',
-                        'HOME',
-                        'UP',
-                        'END',
-                        'PGUP',
-                      ], terminalTheme),
-                      _buildExtraKeysRow([
-                        'TAB',
-                        'CTRL',
-                        'ALT',
-                        'LEFT',
-                        'DOWN',
-                        'RIGHT',
-                        'PGDN',
-                      ], terminalTheme),
+                      _buildExtraKeysRow(
+                        ['ESC', '/', '-', 'HOME', 'UP', 'END', 'PGUP'],
+                        terminalTheme,
+                        terminalController,
+                      ),
+                      _buildExtraKeysRow(
+                        ['TAB', 'CTRL', 'ALT', 'LEFT', 'DOWN', 'RIGHT', 'PGDN'],
+                        terminalTheme,
+                        terminalController,
+                      ),
                     ],
                   ),
                 ),
@@ -134,13 +137,20 @@ class TerminalView extends GetView<TerminalController> {
   Widget _buildExtraKeysRow(
     List<String> keys,
     xterm.TerminalTheme terminalTheme,
+    TerminalController controller,
   ) {
     return Row(
-      children: keys.map((key) => _buildExtraKey(key, terminalTheme)).toList(),
+      children: keys
+          .map((key) => _buildExtraKey(key, terminalTheme, controller))
+          .toList(),
     );
   }
 
-  Widget _buildExtraKey(String key, xterm.TerminalTheme terminalTheme) {
+  Widget _buildExtraKey(
+    String key,
+    xterm.TerminalTheme terminalTheme,
+    TerminalController controller,
+  ) {
     return Obx(() {
       final isCtrlActive = controller.ctrlPressed.value;
       final isAltActive = controller.altPressed.value;
@@ -174,7 +184,7 @@ class TerminalView extends GetView<TerminalController> {
         child: Padding(
           padding: const EdgeInsets.all(2),
           child: GestureDetector(
-            onTap: () => _handleKeyPress(key),
+            onTap: () => _handleKeyPress(key, controller),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
@@ -200,7 +210,7 @@ class TerminalView extends GetView<TerminalController> {
     });
   }
 
-  void _handleKeyPress(String key) {
+  void _handleKeyPress(String key, TerminalController controller) {
     controller.handleModifierKey(key);
   }
 
