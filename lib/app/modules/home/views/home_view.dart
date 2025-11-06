@@ -22,10 +22,16 @@ class HomeView extends GetView<HomeController> {
           IconButton(
             icon: const Icon(Icons.terminal),
             onPressed: () {
-              Get.toNamed(Routes.TERMINAL, arguments: {
-                'containerName': '',
-                'pty': '/system/bin/sh',
-              });
+              Get.toNamed(
+                Routes.TERMINAL,
+                arguments: {'containerName': '', 'pty': '/system/bin/sh'},
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Get.toNamed(Routes.SETTINGS);
             },
           ),
         ],
@@ -65,7 +71,7 @@ class HomeView extends GetView<HomeController> {
                 ],
               ),
             ),
-            // Scrollable content
+
             Expanded(
               child: RefreshIndicator(
                 onRefresh: controller.refreshPage,
@@ -106,6 +112,24 @@ class HomeView extends GetView<HomeController> {
       }),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
+          controller.logger.d(controller.envOk);
+          if (!controller.envOk.value) {
+            Get.dialog(
+              AlertDialog(
+                title: const Text('Error'),
+                content: const Text(
+                  'Make sure you have root and dbox installed',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Get.back(),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+            return;
+          }
           Get.toNamed(Routes.CREATE_CONTAINER);
         },
         child: const Icon(Icons.add),

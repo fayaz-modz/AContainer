@@ -1,4 +1,5 @@
 import 'package:acontainer/app/controllers/logs_controller.dart';
+import 'package:acontainer/app/theme/terminal_theme_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:xterm/xterm.dart' as xterm;
 
@@ -128,12 +129,21 @@ class LogsView extends GetView<LogsController> {
 
         // Terminal view
         Expanded(
-          child: ClipRect(
-            child: xterm.TerminalView(
-              controller.terminal,
-              hardwareKeyboardOnly: true,
-            ),
-          ),
+          child: Obx(() {
+            final terminalThemeController = TerminalThemeController.instance;
+
+            return ClipRect(
+              child: xterm.TerminalView(
+                controller.terminal,
+                readOnly: true,
+                textStyle: xterm.TerminalStyle(
+                  fontSize: 12,
+                  fontFamily: 'JetBrians Mono',
+                ),
+                theme: terminalThemeController.terminalTheme,
+              ),
+            );
+          }),
         ),
       ],
     );

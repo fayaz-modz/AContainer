@@ -8,6 +8,7 @@ import 'package:get_storage/get_storage.dart';
 
 class DboxController extends GetxController {
   final box = GetStorage();
+  RxList<ContainerInfo> containers = <ContainerInfo>[].obs;
 
   String getRootPath() {
     return box.read("root_path") ?? "/data/acontainer";
@@ -48,7 +49,7 @@ class DboxController extends GetxController {
       return [];
     }
 
-    final containers = <ContainerInfo>[];
+    final containerList = <ContainerInfo>[];
     for (final output in result.outputs) {
       if (output.type == OutputType.stdout) {
         final line = output.line.trim();
@@ -56,7 +57,7 @@ class DboxController extends GetxController {
             !line.startsWith('CONTAINER_NAME') &&
             !line.startsWith('----')) {
           try {
-            containers.add(ContainerInfo.fromOutput(line));
+            containerList.add(ContainerInfo.fromOutput(line));
           } catch (e) {
             CommandController.logger.w('Failed to parse container line: $line');
           }
@@ -64,7 +65,8 @@ class DboxController extends GetxController {
       }
     }
 
-    return containers;
+    containers.value = containerList;
+    return containerList;
   }
 
   Stream<CommandOutput> create({
@@ -133,11 +135,18 @@ class DboxController extends GetxController {
     }
 
     final command = commandParts.join(' ');
-    yield* CommandController.runRootStream(command);
+    yield* CommandController.runRootStream(command).map((output) {
+      if (output.type == OutputType.exitCode && output.line == '0') {
+        // Operation succeeded, refresh list to include new container
+        list().then((_) {}, onError: (e) => CommandController.logger.w('Failed to refresh list after create: $e'));
+      }
+      return output;
+    });
   }
 
   Stream<CommandOutput> recreate(
     String name, {
+    String? image,
     bool? tty,
     bool? privileged,
     String? net,
@@ -161,6 +170,7 @@ class DboxController extends GetxController {
       name,
     ];
 
+    if (image != null) commandParts.addAll(['--image', image]);
     if (tty == true) commandParts.add('--tty');
     if (privileged == true) commandParts.add('--privileged');
     if (net != null) commandParts.addAll(['--net', net]);
@@ -198,21 +208,39 @@ class DboxController extends GetxController {
     }
 
     final command = commandParts.join(' ');
-    yield* CommandController.runRootStream(command);
+    yield* CommandController.runRootStream(command).map((output) {
+      if (output.type == OutputType.exitCode && output.line == '0') {
+        // Operation succeeded, refresh status to update list
+        status(name).then((_) {}, onError: (e) => CommandController.logger.w('Failed to refresh status after recreate: $e'));
+      }
+      return output;
+    });
   }
 
   Stream<CommandOutput> start(String name) async* {
     final configPath = getConfigPath();
     final command =
         'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox start $name -d --verbose';
-    yield* CommandController.runRootStream(command);
+    yield* CommandController.runRootStream(command).map((output) {
+      if (output.type == OutputType.exitCode && output.line == '0') {
+        // Operation succeeded, refresh status to update list
+        status(name).then((_) {}, onError: (e) => CommandController.logger.w('Failed to refresh status after start: $e'));
+      }
+      return output;
+    });
   }
 
   Stream<CommandOutput> stop(String name) async* {
     final configPath = getConfigPath();
     final command =
         'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox stop $name';
-    yield* CommandController.runRootStream(command);
+    yield* CommandController.runRootStream(command).map((output) {
+      if (output.type == OutputType.exitCode && output.line == '0') {
+        // Operation succeeded, refresh status to update list
+        status(name).then((_) {}, onError: (e) => CommandController.logger.w('Failed to refresh status after stop: $e'));
+      }
+      return output;
+    });
   }
 
   Future<ContainerStatus> status(String name) async {
@@ -226,14 +254,54 @@ class DboxController extends GetxController {
       throw Exception('Container status failed for $name');
     }
 
-    return ContainerStatus.fromOutput(result.outputs);
+    final status = ContainerStatus.fromOutput(result.outputs);
+
+    // Update the container in the list if it exists
+    final index = containers.indexWhere((c) => c.name == name);
+    if (index != -1) {
+      final updatedContainer = ContainerInfo(
+        name: containers[index].name,
+        image: containers[index].image,
+        state: status.status,
+        created: containers[index].created,
+      );
+      containers[index] = updatedContainer;
+    }
+
+    return status;
+  }
+
+  Future<String> getContainerInfo(String name) async {
+    final configPath = getConfigPath();
+    final command =
+        'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox info $name';
+    final result = await CommandController.runRoot(command);
+
+    if (result.exitCode != 0) {
+      CommandController.logger.e('Failed to get container info: $name');
+      throw Exception('Container info failed for $name');
+    }
+
+    // Combine all output lines into a single string
+    final outputLines = result.outputs
+        .where((output) => output.type == OutputType.stdout)
+        .map((output) => output.line)
+        .toList();
+    
+    return outputLines.join('\n');
   }
 
   Stream<CommandOutput> delete(String name) async* {
     final configPath = getConfigPath();
     final command =
         'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox delete $name';
-    yield* CommandController.runRootStream(command);
+    yield* CommandController.runRootStream(command).map((output) {
+      if (output.type == OutputType.exitCode && output.line == '0') {
+        // Operation succeeded, remove from list
+        containers.removeWhere((c) => c.name == name);
+      }
+      return output;
+    });
   }
 
   Future<CommandResult> logs(String name) async {

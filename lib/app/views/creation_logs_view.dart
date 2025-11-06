@@ -32,7 +32,7 @@ class _CreationLogsViewState extends State<CreationLogsView> {
     super.initState();
     logsController = LogsController();
     dboxController = Get.find<DboxController>();
-    
+
     // Start listening to the creation stream with completion and error callbacks
     logsController.startCommandStream(
       widget.creationStream,
@@ -102,10 +102,14 @@ class _CreationLogsViewState extends State<CreationLogsView> {
       setState(() {
         isCancelled = true;
       });
-      
-      logsController.write('\x1b[33m--- Cancelling container creation ---\x1b[0m\n');
-      logsController.write('\x1b[33mStopping container "${widget.containerName}"...\x1b[0m\n');
-      
+
+      logsController.write(
+        '\x1b[33m--- Cancelling container creation ---\x1b[0m\n',
+      );
+      logsController.write(
+        '\x1b[33mStopping container "${widget.containerName}"...\x1b[0m\n',
+      );
+
       // Run dbox stop to cancel the creation
       final stopStream = dboxController.stop(widget.containerName);
       stopStream.listen(
@@ -117,7 +121,9 @@ class _CreationLogsViewState extends State<CreationLogsView> {
           }
         },
         onDone: () {
-          logsController.write('\x1b[32m--- Container creation cancelled ---\x1b[0m\n');
+          logsController.write(
+            '\x1b[32m--- Container creation cancelled ---\x1b[0m\n',
+          );
           Future.delayed(const Duration(seconds: 1), () {
             if (mounted) {
               Navigator.of(context).pop();
@@ -125,7 +131,9 @@ class _CreationLogsViewState extends State<CreationLogsView> {
           });
         },
         onError: (error) {
-          logsController.write('\x1b[31mFailed to cancel creation: $error\x1b[0m\n');
+          logsController.write(
+            '\x1b[31mFailed to cancel creation: $error\x1b[0m\n',
+          );
         },
       );
     } catch (e) {
@@ -137,10 +145,14 @@ class _CreationLogsViewState extends State<CreationLogsView> {
     setState(() {
       isInBackground = true;
     });
-    
-    logsController.write('\x1b[33m--- Container creation will continue in background ---\x1b[0m\n');
-    logsController.write('\x1b[33mYou can check the status from the home screen\x1b[0m\n');
-    
+
+    logsController.write(
+      '\x1b[33m--- Container creation will continue in background ---\x1b[0m\n',
+    );
+    logsController.write(
+      '\x1b[33mYou can check the status from the home screen\x1b[0m\n',
+    );
+
     // Navigate back to home after a short delay
     Future.delayed(const Duration(seconds: 1), () {
       if (mounted) {
@@ -215,9 +227,7 @@ class _CreationLogsViewState extends State<CreationLogsView> {
               decoration: BoxDecoration(
                 color: _getStatusColor(),
                 border: Border(
-                  bottom: BorderSide(
-                    color: _getStatusBorderColor(),
-                  ),
+                  bottom: BorderSide(color: _getStatusBorderColor()),
                 ),
               ),
               child: Row(
@@ -236,7 +246,7 @@ class _CreationLogsViewState extends State<CreationLogsView> {
                 ],
               ),
             ),
-            
+
             // Error message if any
             if (errorMessage != null)
               Container(
@@ -261,12 +271,18 @@ class _CreationLogsViewState extends State<CreationLogsView> {
                   ],
                 ),
               ),
-            
+
             // Terminal view
             Expanded(
               child: Container(
                 color: Colors.black,
-                child: xterm.TerminalView(logsController.terminal),
+                child: xterm.TerminalView(
+                  logsController.terminal,
+                  textStyle: xterm.TerminalStyle(
+                    fontSize: 12,
+                    fontFamily: 'JetBrains Mono',
+                  ),
+                ),
               ),
             ),
           ],
@@ -300,9 +316,12 @@ class _CreationLogsViewState extends State<CreationLogsView> {
 
   Widget _getStatusIcon() {
     if (isCancelled) return Icon(Icons.cancel, color: Colors.red.shade600);
-    if (isInBackground) return Icon(Icons.play_arrow, color: Colors.orange.shade600);
-    if (isCompleted) return Icon(Icons.check_circle, color: Colors.green.shade600);
-    if (errorMessage != null) return Icon(Icons.error, color: Colors.red.shade600);
+    if (isInBackground)
+      return Icon(Icons.play_arrow, color: Colors.orange.shade600);
+    if (isCompleted)
+      return Icon(Icons.check_circle, color: Colors.green.shade600);
+    if (errorMessage != null)
+      return Icon(Icons.error, color: Colors.red.shade600);
     return SizedBox(
       width: 20,
       height: 20,
@@ -314,9 +333,12 @@ class _CreationLogsViewState extends State<CreationLogsView> {
   }
 
   String _getStatusText() {
-    if (isCancelled) return 'Container "${widget.containerName}" creation cancelled';
-    if (isInBackground) return 'Container "${widget.containerName}" creation continuing in background';
-    if (isCompleted) return 'Container "${widget.containerName}" created successfully!';
+    if (isCancelled)
+      return 'Container "${widget.containerName}" creation cancelled';
+    if (isInBackground)
+      return 'Container "${widget.containerName}" creation continuing in background';
+    if (isCompleted)
+      return 'Container "${widget.containerName}" created successfully!';
     if (errorMessage != null) return 'Error creating container: $errorMessage';
     return 'Creating container "${widget.containerName}"...';
   }
@@ -329,3 +351,4 @@ class _CreationLogsViewState extends State<CreationLogsView> {
     return Colors.blue.shade800;
   }
 }
+

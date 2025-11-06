@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:acontainer/app/controllers/dbox_controller.dart';
+import 'package:acontainer/app/theme/terminal_theme_controller.dart';
 import 'package:acontainer/app/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pty/flutter_pty.dart';
@@ -11,6 +12,7 @@ import 'package:xterm/xterm.dart' as xterm;
 
 class TerminalController extends GetxController {
   final DboxController dbox = Get.find<DboxController>();
+  final terminalThemeController = TerminalThemeController.instance;
   final logger = Logger('TerminalController');
 
   final terminal = xterm.Terminal(
@@ -24,11 +26,14 @@ class TerminalController extends GetxController {
   final isConnecting = false.obs;
   final errorMessage = ''.obs;
   final terminalSize = Rx<TerminalSize>(TerminalSize(80, 24));
+  final RxDouble fontSizeNotifier = 12.0.obs;
+  double initialFontSize = 12.0;
 
   Pty? _pty;
   String _outputBuffer = '';
   final ctrlPressed = false.obs;
   final altPressed = false.obs;
+  final isOutputPaused = false.obs;
 
   @override
   InternalFinalCallback<void> get onDelete {
@@ -53,7 +58,13 @@ class TerminalController extends GetxController {
       logger.i('Connecting to container: ${containerName.value}');
 
       // Clear terminal and show connection message
-      terminal.buffer.clear();
+      try {
+        terminal.buffer.clear();
+      } catch (e) {
+        // If buffer is empty, just write over existing content
+        logger.d('Buffer clear failed, continuing: $e');
+      }
+
       if (pty.value.isNotEmpty) {
         terminal.write('Starting PTY: ${pty.value}...\r\n');
       } else {
@@ -70,11 +81,18 @@ class TerminalController extends GetxController {
 
       // Set up terminal output handling
       terminal.onOutput = (data) {
-        // Apply modifiers to soft keyboard input
+        // Check if modifiers are active and process accordingly
         if (ctrlPressed.value || altPressed.value) {
-          String modifiedData = _applyModifiersToInput(data);
-          _pty?.write(const Utf8Encoder().convert(modifiedData));
+          // Process each character with modifiers
+          for (int i = 0; i < data.length; i++) {
+            final char = data[i];
+            _sendKeyWithModifiers(char);
+          }
+          // Auto-toggle modifiers off after processing
+          if (ctrlPressed.value) ctrlPressed.value = false;
+          if (altPressed.value) altPressed.value = false;
         } else {
+          // Direct PTY write when no modifiers
           _pty?.write(const Utf8Encoder().convert(data));
         }
       };
@@ -119,11 +137,15 @@ class TerminalController extends GetxController {
 
       isConnected.value = true;
       isConnecting.value = false;
-      terminal.buffer.clear();
+      try {
+        terminal.buffer.clear();
+      } catch (e) {
+        // If buffer is empty, just write over existing content
+        logger.d('Buffer clear failed, continuing: $e');
+      }
+
       if (pty.value.isNotEmpty) {
-        terminal.write(
-          '\x1b[32mStarted PTY: ${pty.value}\x1b[0m\r\n',
-        );
+        terminal.write('\x1b[32mStarted PTY: ${pty.value}\x1b[0m\r\n');
       } else {
         terminal.write(
           '\x1b[32mConnected to container ${containerName.value}\x1b[0m\r\n',
@@ -165,14 +187,17 @@ class TerminalController extends GetxController {
   }
 
   void handleModifierKey(String key) {
+    logger.d(
+      'handleModifierKey called with key: "$key", CTRL:${ctrlPressed.value}, ALT:${altPressed.value}',
+    );
     switch (key) {
       case 'CTRL':
         ctrlPressed.value = !ctrlPressed.value;
-        logger.d('CTRL ${ctrlPressed.value ? 'pressed' : 'released'}');
+        logger.d('CTRL toggled to: ${ctrlPressed.value}');
         break;
       case 'ALT':
         altPressed.value = !altPressed.value;
-        logger.d('ALT ${altPressed.value ? 'pressed' : 'released'}');
+        logger.d('ALT toggled to: ${altPressed.value}');
         break;
       default:
         _sendKeyWithModifiers(key);
@@ -203,6 +228,9 @@ class TerminalController extends GetxController {
         'TerminalController initialized for container: ${containerName.value}, PTY: ${pty.value}',
       );
 
+      // Add initial content to prevent empty buffer issues
+      terminal.write('\x1b[1mTerminal Ready\x1b[0m\r\n');
+
       // Initialize terminal after the frame is rendered
       WidgetsBinding.instance.endOfFrame.then((_) {
         if (pty.value.isNotEmpty || containerName.value.isNotEmpty) {
@@ -212,6 +240,31 @@ class TerminalController extends GetxController {
           terminal.write(
             '\x1b[31mError: No PTY command or container name provided\x1b[0m\r\n',
           );
+          terminal.write(
+            'Please provide a container name or PTY command to connect.\r\n\r\n',
+          );
+          terminal.write('\x1b[1mExample Usage:\x1b[0m\r\n');
+          terminal.write(
+            '• Connect to container: \x1b[32mmy-container\x1b[0m\r\n',
+          );
+          terminal.write('• Start shell: \x1b[32m/bin/bash\x1b[0m\r\n');
+          terminal.write(
+            '• Start specific command: \x1b[32m/bin/sh -c "echo hello"\x1b[0m\r\n\r\n',
+          );
+          terminal.write('\x1b[1mDemo Terminal Output:\x1b[0m\r\n');
+          terminal.write('\$ \x1b[32mecho "Hello, World!"\x1b[0m\r\n');
+          terminal.write('Hello, World!\r\n');
+          terminal.write('\$ \x1b[32mls -la\x1b[0m\r\n');
+          terminal.write('total 16\r\n');
+          terminal.write('drwxr-xr-x  3 user user 4096 Nov  5 12:00 .\r\n');
+          terminal.write('drwxr-xr-x 10 user user 4096 Nov  5 11:00 ..\r\n');
+          terminal.write(
+            '-rw-r--r--  1 user user  220 Nov  5 10:30 config.txt\r\n',
+          );
+          terminal.write(
+            '-rwxr-xr-x  1 user user 1024 Nov  5 09:15 script.sh\r\n',
+          );
+          terminal.write('\$ \x1b[?25h');
         }
       });
     } catch (e) {
@@ -238,50 +291,6 @@ class TerminalController extends GetxController {
       // PTY resize is handled by the onResize callback
       logger.i('Terminal resized to ${columns}x$rows');
     }
-  }
-
-  String _applyModifiersToInput(String data) {
-    if (data.isEmpty) return data;
-
-    String result = '';
-    for (int i = 0; i < data.length; i++) {
-      String char = data[i];
-      int charCode = char.codeUnitAt(0);
-
-      if (ctrlPressed.value && altPressed.value) {
-        // Ctrl+Alt combinations
-        if (charCode >= 97 && charCode <= 122) {
-          // a-z
-          charCode = charCode - 96;
-          result += String.fromCharCode(charCode);
-        } else {
-          result += char;
-        }
-      } else if (ctrlPressed.value) {
-        // Ctrl combinations
-        if (charCode >= 97 && charCode <= 122) {
-          // a-z
-          charCode = charCode - 96;
-          result += String.fromCharCode(charCode);
-        } else if (charCode >= 64 && charCode <= 95) {
-          // @ to _
-          charCode = charCode - 64;
-          result += String.fromCharCode(charCode);
-        } else {
-          result += char;
-        }
-      } else if (altPressed.value) {
-        // Alt combinations - send ESC prefix
-        result += '\x1b$char';
-      } else {
-        result += char;
-      }
-    }
-
-    logger.d(
-      'Soft keyboard input: "$data" -> modified: "$result" (CTRL:${ctrlPressed.value}, ALT:${altPressed.value})',
-    );
-    return result;
   }
 
   void _interceptClearCommand(String data) {
@@ -314,9 +323,26 @@ class TerminalController extends GetxController {
           input = String.fromCharCode(charCode);
         }
       } else if (ctrlPressed.value) {
-        // Ctrl combinations
-        if (charCode >= 97 && charCode <= 122) {
-          // a-z
+        // Ctrl combinations - handle special cases first
+        if (key.toLowerCase() == 'c') {
+          input = '\x03'; // Ctrl+C = SIGINT
+          logger.d('Ctrl+C pressed, sending SIGINT (\\x03)');
+        } else if (key.toLowerCase() == 'z') {
+          input = '\x1a'; // Ctrl+Z = SIGTSTP
+          logger.d('Ctrl+Z pressed, sending SIGTSTP (\\x1a)');
+        } else if (key.toLowerCase() == 'd') {
+          input = '\x04'; // Ctrl+D = EOF
+          logger.d('Ctrl+D pressed, sending EOF (\\x04)');
+        } else if (key.toLowerCase() == 's') {
+          input = '\x13'; // Ctrl+S = XOFF
+          isOutputPaused.value = true;
+          logger.d('Ctrl+S pressed, sending XOFF (\\x13) - output paused');
+        } else if (key.toLowerCase() == 'q') {
+          input = '\x11'; // Ctrl+Q = XON
+          isOutputPaused.value = false;
+          logger.d('Ctrl+Q pressed, sending XON (\\x11) - output resumed');
+        } else if (charCode >= 97 && charCode <= 122) {
+          // a-z (excluding special cases above)
           charCode = charCode - 96; // Ctrl+a = 1, Ctrl+b = 2, etc.
           input = String.fromCharCode(charCode);
         } else if (charCode >= 64 && charCode <= 95) {
@@ -325,7 +351,7 @@ class TerminalController extends GetxController {
           input = String.fromCharCode(charCode);
         }
       } else if (altPressed.value) {
-        // Alt combinations - send ESC prefix
+        // Alt combinations - send ESC prefix (standard xterm behavior)
         input = '\x1b$key';
       } else {
         input = key;
@@ -335,11 +361,11 @@ class TerminalController extends GetxController {
         'Character input: $key (charCode: $charCode) -> input: $input (CTRL:${ctrlPressed.value}, ALT:${altPressed.value})',
       );
     } else {
-      // Special keys with modifiers
+      // Special keys with modifiers - use proper escape sequences
       switch (key) {
         case 'UP':
           if (ctrlPressed.value) {
-            input = '\x1b[1;5A'; // Ctrl+Up
+            input = '\x1b[1;5A'; // Ctrl+Up (standard xterm)
           } else if (altPressed.value) {
             input = '\x1b[1;3A'; // Alt+Up
           } else {
@@ -348,7 +374,7 @@ class TerminalController extends GetxController {
           break;
         case 'DOWN':
           if (ctrlPressed.value) {
-            input = '\x1b[1;5B'; // Ctrl+Down
+            input = '\x1b[1;5B'; // Ctrl+Down (standard xterm)
           } else if (altPressed.value) {
             input = '\x1b[1;3B'; // Alt+Down
           } else {
@@ -357,7 +383,7 @@ class TerminalController extends GetxController {
           break;
         case 'LEFT':
           if (ctrlPressed.value) {
-            input = '\x1b[1;5D'; // Ctrl+Left
+            input = '\x1b[1;5D'; // Ctrl+Left (standard xterm)
           } else if (altPressed.value) {
             input = '\x1b[1;3D'; // Alt+Left
           } else {
@@ -366,7 +392,7 @@ class TerminalController extends GetxController {
           break;
         case 'RIGHT':
           if (ctrlPressed.value) {
-            input = '\x1b[1;5C'; // Ctrl+Right
+            input = '\x1b[1;5C'; // Ctrl+Right (standard xterm)
           } else if (altPressed.value) {
             input = '\x1b[1;3C'; // Alt+Right
           } else {
@@ -375,7 +401,7 @@ class TerminalController extends GetxController {
           break;
         case 'HOME':
           if (ctrlPressed.value) {
-            input = '\x1b[1;5H'; // Ctrl+Home
+            input = '\x1b[1;5H'; // Ctrl+Home (standard xterm)
           } else if (altPressed.value) {
             input = '\x1b[1;3H'; // Alt+Home
           } else {
@@ -384,7 +410,7 @@ class TerminalController extends GetxController {
           break;
         case 'END':
           if (ctrlPressed.value) {
-            input = '\x1b[1;5F'; // Ctrl+End
+            input = '\x1b[1;5F'; // Ctrl+End (standard xterm)
           } else if (altPressed.value) {
             input = '\x1b[1;3F'; // Alt+End
           } else {
@@ -393,7 +419,7 @@ class TerminalController extends GetxController {
           break;
         case 'PGUP':
           if (ctrlPressed.value) {
-            input = '\x1b[5;5~'; // Ctrl+PageUp
+            input = '\x1b[5;5~'; // Ctrl+PageUp (standard xterm)
           } else if (altPressed.value) {
             input = '\x1b[5;3~'; // Alt+PageUp
           } else {
@@ -402,7 +428,7 @@ class TerminalController extends GetxController {
           break;
         case 'PGDN':
           if (ctrlPressed.value) {
-            input = '\x1b[6;5~'; // Ctrl+PageDown
+            input = '\x1b[6;5~'; // Ctrl+PageDown (standard xterm)
           } else if (altPressed.value) {
             input = '\x1b[6;3~'; // Alt+PageDown
           } else {
@@ -429,7 +455,7 @@ class TerminalController extends GetxController {
           break;
         case 'TAB':
           if (ctrlPressed.value) {
-            input = '\x09'; // Ctrl+Tab
+            input = '\x09'; // Ctrl+Tab (standard xterm)
           } else if (altPressed.value) {
             input = '\x1b\t'; // Alt+Tab
           } else {
@@ -438,7 +464,7 @@ class TerminalController extends GetxController {
           break;
         case 'ENTER':
           if (ctrlPressed.value) {
-            input = '\x0d'; // Ctrl+Enter
+            input = '\x0d'; // Ctrl+Enter (standard xterm)
           } else if (altPressed.value) {
             input = '\x1b\x0d'; // Alt+Enter
           } else {
@@ -446,7 +472,7 @@ class TerminalController extends GetxController {
           }
           break;
         case 'ESC':
-          input = '\x1b'; // Escape
+          input = '\x1b'; // Escape (standard xterm)
           break;
         default:
           input = key;
@@ -458,7 +484,8 @@ class TerminalController extends GetxController {
       logger.d(
         'About to send: input="$input" (raw bytes: ${input.codeUnits.map((b) => '0x${b.toRadixString(16)}').join(' ')})',
       );
-      terminal.textInput(input);
+      // Write directly to PTY instead of going through terminal.textInput
+      _pty?.write(const Utf8Encoder().convert(input));
       logger.d(
         'Sent key: $key with modifiers (CTRL:${ctrlPressed.value}, ALT:${altPressed.value}) = $input',
       );

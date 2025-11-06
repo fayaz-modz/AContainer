@@ -8,18 +8,24 @@ class HomeController extends GetxController {
   final dbox = Get.find<DboxController>();
   Rx<bool> envOk = false.obs;
   Rx<bool> loading = false.obs;
-  RxList<ContainerInfo> containers = <ContainerInfo>[].obs;
+
+  RxList<ContainerInfo> get containers => dbox.containers;
 
   Future<bool> checkEnv() async {
-    final result = await dbox.envCheck();
-    envOk.value = result;
-    return result;
+    try {
+      final result = await dbox.envCheck();
+      envOk.value = result;
+      return result;
+    } catch (e) {
+      logger.i('Failed to check environment: $e');
+    }
+    envOk.value = false;
+    return false;
   }
 
   Future<void> loadContainers() async {
     try {
-      final containerList = await dbox.list();
-      containers.value = containerList;
+      await dbox.list();
     } catch (e) {
       logger.e('Failed to load containers: $e');
     }
@@ -27,7 +33,10 @@ class HomeController extends GetxController {
 
   Future<void> refreshPage() async {
     loading.value = true;
-    await Future.wait([checkEnv(), loadContainers()]);
+    final result = await checkEnv();
+    if (result) {
+      await loadContainers();
+    }
     loading.value = false;
   }
 

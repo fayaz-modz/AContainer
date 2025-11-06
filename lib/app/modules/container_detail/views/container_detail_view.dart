@@ -279,6 +279,9 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
                             controller.startContainer();
                           }
                         },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: isRunning ? colorScheme.error : null,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -337,6 +340,19 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
                     child: OutlinedButton.icon(
                       onPressed: isLoading
                           ? null
+                          : () => controller.editContainer(),
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('Edit'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.blue,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: isLoading
+                          ? null
                           : () => controller.recreateContainer(),
                       icon: const Icon(Icons.refresh, size: 16),
                       label: const Text('Recreate'),
@@ -345,7 +361,13 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                ],
+              ),
+
+              const SizedBox(height: 8),
+
+              Row(
+                children: [
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: isLoading
@@ -358,6 +380,8 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  const Expanded(child: SizedBox()), // Empty space for alignment
                 ],
               ),
 

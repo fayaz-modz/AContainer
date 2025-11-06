@@ -523,6 +523,18 @@ class ContainerDetailController extends GetxController {
     }
   }
 
+  void editContainer() {
+    if (containerName.value.isEmpty) return;
+
+    // Navigate to edit container page
+    Get.toNamed(
+      '/edit-container',
+      arguments: {
+        'containerName': containerName.value,
+      },
+    );
+  }
+
   void setView(ContainerView view) {
     currentView.value = view;
   }

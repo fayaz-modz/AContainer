@@ -8,6 +8,12 @@ import '../modules/home/bindings/home_binding.dart';
 import '../modules/home/views/home_view.dart';
 import '../modules/terminal/bindings/terminal_binding.dart';
 import '../modules/terminal/views/terminal_view.dart';
+import '../modules/terminal/views/terminal_settings_view.dart';
+import '../modules/settings/bindings/about_binding.dart';
+import '../modules/settings/bindings/general_settings_binding.dart';
+import '../modules/settings/views/about_view.dart';
+import '../modules/settings/views/general_settings_view.dart';
+import '../modules/settings/views/settings_view.dart';
 
 part 'app_routes.dart';
 
@@ -28,6 +34,11 @@ class AppPages {
       binding: CreateContainerBinding(),
     ),
     GetPage(
+      name: _Paths.EDIT_CONTAINER,
+      page: () => const CreateContainerView(),
+      binding: CreateContainerBinding(),
+    ),
+    GetPage(
       name: _Paths.CONTAINER_DETAIL,
       page: () => ContainerDetailView(),
       binding: ContainerDetailBinding(),
@@ -36,6 +47,24 @@ class AppPages {
       name: _Paths.TERMINAL,
       page: () => const TerminalView(),
       binding: TerminalBinding(),
+    ),
+    GetPage(
+      name: _Paths.TERMINAL_SETTINGS,
+      page: () => const TerminalSettingsView(),
+    ),
+    GetPage(
+      name: _Paths.GENERAL_SETTINGS,
+      page: () => const GeneralSettingsView(),
+      binding: GeneralSettingsBinding(),
+    ),
+    GetPage(
+      name: _Paths.ABOUT,
+      page: () => const AboutView(),
+      binding: AboutBinding(),
+    ),
+    GetPage(
+      name: _Paths.SETTINGS,
+      page: () => const SettingsView(),
     ),
   ];
 }
