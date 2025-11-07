@@ -9,8 +9,6 @@ class AppThemeController extends GetxController {
 
   // Theme mode
   final Rx<ThemeMode> themeMode = ThemeMode.system.obs;
-  
-
 
   @override
   void onInit() {
@@ -35,8 +33,6 @@ class AppThemeController extends GetxController {
           themeMode.value = ThemeMode.system;
       }
     }
-
-
   }
 
   void setThemeMode(ThemeMode mode) {
@@ -58,11 +54,11 @@ class AppThemeController extends GetxController {
   }
 
   void _applyTheme() {
-    final isDark = Get.isPlatformDarkMode ?? false;
+    final isDark = Get.isPlatformDarkMode;
     final currentThemeMode = themeMode.value;
-    
+
     ThemeData theme;
-    if (currentThemeMode == ThemeMode.dark || 
+    if (currentThemeMode == ThemeMode.dark ||
         (currentThemeMode == ThemeMode.system && isDark)) {
       theme = AppTheme.darkTheme();
     } else {

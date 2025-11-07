@@ -54,30 +54,28 @@ class GeneralSettingsView extends GetView<GeneralSettingsController> {
             ),
             const SizedBox(height: 16),
             Obx(
-              () => Column(
-                children: [
-                  RadioListTile<ThemeMode>(
-                    title: const Text('System'),
-                    subtitle: const Text('Follow device theme'),
-                    value: ThemeMode.system,
-                    groupValue: controller.themeMode,
-                    onChanged: (value) => controller.setThemeMode(value!),
-                  ),
-                  RadioListTile<ThemeMode>(
-                    title: const Text('Light'),
-                    subtitle: const Text('Always use light theme'),
-                    value: ThemeMode.light,
-                    groupValue: controller.themeMode,
-                    onChanged: (value) => controller.setThemeMode(value!),
-                  ),
-                  RadioListTile<ThemeMode>(
-                    title: const Text('Dark'),
-                    subtitle: const Text('Always use dark theme'),
-                    value: ThemeMode.dark,
-                    groupValue: controller.themeMode,
-                    onChanged: (value) => controller.setThemeMode(value!),
-                  ),
-                ],
+              () => RadioGroup<ThemeMode>(
+                groupValue: controller.themeMode,
+                onChanged: (value) => controller.setThemeMode(value!),
+                child: Column(
+                  children: [
+                    RadioListTile<ThemeMode>(
+                      title: const Text('System'),
+                      subtitle: const Text('Follow device theme'),
+                      value: ThemeMode.system,
+                    ),
+                    RadioListTile<ThemeMode>(
+                      title: const Text('Light'),
+                      subtitle: const Text('Always use light theme'),
+                      value: ThemeMode.light,
+                    ),
+                    RadioListTile<ThemeMode>(
+                      title: const Text('Dark'),
+                      subtitle: const Text('Always use dark theme'),
+                      value: ThemeMode.dark,
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

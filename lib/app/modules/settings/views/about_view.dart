@@ -97,10 +97,7 @@ class AboutView extends GetView<AboutController> {
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  'About',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+                Text('About', style: Theme.of(context).textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 16),
@@ -123,16 +120,13 @@ class AboutView extends GetView<AboutController> {
           children: [
             Row(
               children: [
-              Icon(
-                Icons.inventory_2_outlined,
-                size: 40,
-                color: Theme.of(context).colorScheme.onPrimaryContainer,
-              ),
-                const SizedBox(width: 12),
-                Text(
-                  'Links',
-                  style: Theme.of(context).textTheme.titleMedium,
+                Icon(
+                  Icons.inventory_2_outlined,
+                  size: 40,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
                 ),
+                const SizedBox(width: 12),
+                Text('Links', style: Theme.of(context).textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 16),
@@ -141,21 +135,26 @@ class AboutView extends GetView<AboutController> {
               title: const Text('Source Code'),
               subtitle: const Text('View on GitHub'),
               trailing: const Icon(Icons.open_in_new),
-              onTap: () => _launchUrl('https://github.com/your-username/acontainer'),
+              onTap: () =>
+                  _launchUrl('https://github.com/your-username/acontainer'),
             ),
             ListTile(
               leading: const Icon(Icons.bug_report_outlined),
               title: const Text('Report Issues'),
               subtitle: const Text('Report bugs or request features'),
               trailing: const Icon(Icons.open_in_new),
-              onTap: () => _launchUrl('https://github.com/your-username/acontainer/issues'),
+              onTap: () => _launchUrl(
+                'https://github.com/your-username/acontainer/issues',
+              ),
             ),
             ListTile(
               leading: const Icon(Icons.description_outlined),
               title: const Text('Documentation'),
               subtitle: const Text('View documentation'),
               trailing: const Icon(Icons.open_in_new),
-              onTap: () => _launchUrl('https://github.com/your-username/acontainer/wiki'),
+              onTap: () => _launchUrl(
+                'https://github.com/your-username/acontainer/wiki',
+              ),
             ),
           ],
         ),
@@ -177,10 +176,7 @@ class AboutView extends GetView<AboutController> {
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  'License',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+                Text('License', style: Theme.of(context).textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 16),
@@ -223,8 +219,7 @@ class AboutView extends GetView<AboutController> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('MIT License'),
         content: const SingleChildScrollView(
-          child: Text(
-            '''MIT License
+          child: Text('''MIT License
 
 Copyright (c) 2024 acontainer
 
@@ -244,8 +239,7 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.''',
-          ),
+SOFTWARE.'''),
         ),
         actions: [
           TextButton(

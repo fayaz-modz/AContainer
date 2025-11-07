@@ -315,13 +315,18 @@ class _CreationLogsViewState extends State<CreationLogsView> {
   }
 
   Widget _getStatusIcon() {
-    if (isCancelled) return Icon(Icons.cancel, color: Colors.red.shade600);
-    if (isInBackground)
+    if (isCancelled) {
+      return Icon(Icons.cancel, color: Colors.red.shade600);
+    }
+    if (isInBackground) {
       return Icon(Icons.play_arrow, color: Colors.orange.shade600);
-    if (isCompleted)
+    }
+    if (isCompleted) {
       return Icon(Icons.check_circle, color: Colors.green.shade600);
-    if (errorMessage != null)
+    }
+    if (errorMessage != null) {
       return Icon(Icons.error, color: Colors.red.shade600);
+    }
     return SizedBox(
       width: 20,
       height: 20,
@@ -333,12 +338,15 @@ class _CreationLogsViewState extends State<CreationLogsView> {
   }
 
   String _getStatusText() {
-    if (isCancelled)
+    if (isCancelled) {
       return 'Container "${widget.containerName}" creation cancelled';
-    if (isInBackground)
+    }
+    if (isInBackground) {
       return 'Container "${widget.containerName}" creation continuing in background';
-    if (isCompleted)
+    }
+    if (isCompleted) {
       return 'Container "${widget.containerName}" created successfully!';
+    }
     if (errorMessage != null) return 'Error creating container: $errorMessage';
     return 'Creating container "${widget.containerName}"...';
   }
@@ -351,4 +359,3 @@ class _CreationLogsViewState extends State<CreationLogsView> {
     return Colors.blue.shade800;
   }
 }
-

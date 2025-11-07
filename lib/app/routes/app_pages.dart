@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names
+
 import 'package:get/get.dart';
 
 import '../modules/container_detail/bindings/container_detail_binding.dart';
@@ -62,9 +64,6 @@ class AppPages {
       page: () => const AboutView(),
       binding: AboutBinding(),
     ),
-    GetPage(
-      name: _Paths.SETTINGS,
-      page: () => const SettingsView(),
-    ),
+    GetPage(name: _Paths.SETTINGS, page: () => const SettingsView()),
   ];
 }

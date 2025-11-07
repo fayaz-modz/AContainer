@@ -64,7 +64,8 @@ class TerminalThemeController extends GetxController {
     ),
   );
 
-  static final TerminalThemeController _instance = TerminalThemeController._internal();
+  static final TerminalThemeController _instance =
+      TerminalThemeController._internal();
   factory TerminalThemeController() => _instance;
   TerminalThemeController._internal();
 
@@ -73,7 +74,7 @@ class TerminalThemeController extends GetxController {
   String get currentThemeName => _currentThemeName.value;
   xterm.TerminalTheme get terminalTheme => _currentTerminalTheme.value;
 
-@override
+  @override
   void onInit() {
     super.onInit();
     _loadThemeSettings();
@@ -81,8 +82,8 @@ class TerminalThemeController extends GetxController {
   }
 
   void _updateCurrentTerminalTheme() {
-    _currentTerminalTheme.value = _currentThemeName.value == 'custom' 
-        ? _customTheme.value 
+    _currentTerminalTheme.value = _currentThemeName.value == 'custom'
+        ? _customTheme.value
         : AppThemes.getThemeByName(_currentThemeName.value).terminalTheme;
   }
 
@@ -96,11 +97,12 @@ class TerminalThemeController extends GetxController {
 
       if (themeName == 'custom') {
         final customThemeJson = box.read(_customThemeKey);
-        if (customThemeJson != null && customThemeJson is Map<String, dynamic>) {
+        if (customThemeJson != null &&
+            customThemeJson is Map<String, dynamic>) {
           _customTheme.value = _terminalThemeFromJson(customThemeJson);
         }
       }
-      
+
       _updateCurrentTerminalTheme();
     } catch (e) {
       Get.log('Error loading terminal theme settings: $e');
@@ -112,15 +114,18 @@ class TerminalThemeController extends GetxController {
     try {
       _currentThemeName.value = themeName;
       await box.write(_terminalThemeKey, themeName);
-      
+
       if (themeName != 'custom') {
         final appTheme = AppThemes.getThemeByName(themeName);
         _customTheme.value = appTheme.terminalTheme;
-        await box.write(_customThemeKey, _terminalThemeToJson(_customTheme.value));
+        await box.write(
+          _customThemeKey,
+          _terminalThemeToJson(_customTheme.value),
+        );
       }
-      
+
       _updateCurrentTerminalTheme();
-      
+
       // Force a UI update
       update();
     } catch (e) {
@@ -178,14 +183,21 @@ class TerminalThemeController extends GetxController {
         brightMagenta: brightMagenta ?? _customTheme.value.brightMagenta,
         brightCyan: brightCyan ?? _customTheme.value.brightCyan,
         brightWhite: brightWhite ?? _customTheme.value.brightWhite,
-        searchHitBackground: searchHitBackground ?? _customTheme.value.searchHitBackground,
-        searchHitBackgroundCurrent: searchHitBackgroundCurrent ?? _customTheme.value.searchHitBackgroundCurrent,
-        searchHitForeground: searchHitForeground ?? _customTheme.value.searchHitForeground,
+        searchHitBackground:
+            searchHitBackground ?? _customTheme.value.searchHitBackground,
+        searchHitBackgroundCurrent:
+            searchHitBackgroundCurrent ??
+            _customTheme.value.searchHitBackgroundCurrent,
+        searchHitForeground:
+            searchHitForeground ?? _customTheme.value.searchHitForeground,
       );
 
       final box = GetStorage();
-      await box.write(_customThemeKey, _terminalThemeToJson(_customTheme.value));
-      
+      await box.write(
+        _customThemeKey,
+        _terminalThemeToJson(_customTheme.value),
+      );
+
       _updateCurrentTerminalTheme();
     } catch (e) {
       Get.log('Error updating custom terminal theme: $e');
@@ -196,10 +208,13 @@ class TerminalThemeController extends GetxController {
     try {
       final defaultTheme = AppThemes.getThemeByName('default').terminalTheme;
       _customTheme.value = defaultTheme;
-      
+
       final box = GetStorage();
-      await box.write(_customThemeKey, _terminalThemeToJson(_customTheme.value));
-      
+      await box.write(
+        _customThemeKey,
+        _terminalThemeToJson(_customTheme.value),
+      );
+
       _updateCurrentTerminalTheme();
     } catch (e) {
       Get.log('Error resetting terminal theme: $e');
@@ -210,10 +225,13 @@ class TerminalThemeController extends GetxController {
     try {
       final appTheme = AppThemes.getThemeByName(themeName);
       _customTheme.value = appTheme.terminalTheme;
-      
+
       final box = GetStorage();
-      await box.write(_customThemeKey, _terminalThemeToJson(_customTheme.value));
-      
+      await box.write(
+        _customThemeKey,
+        _terminalThemeToJson(_customTheme.value),
+      );
+
       _updateCurrentTerminalTheme();
     } catch (e) {
       Get.log('Error loading terminal theme from app theme: $e');
@@ -222,29 +240,29 @@ class TerminalThemeController extends GetxController {
 
   Map<String, dynamic> _terminalThemeToJson(xterm.TerminalTheme theme) {
     return {
-      'cursor': theme.cursor.value,
-      'selection': theme.selection.value,
-      'foreground': theme.foreground.value,
-      'background': theme.background.value,
-      'black': theme.black.value,
-      'white': theme.white.value,
-      'red': theme.red.value,
-      'green': theme.green.value,
-      'yellow': theme.yellow.value,
-      'blue': theme.blue.value,
-      'magenta': theme.magenta.value,
-      'cyan': theme.cyan.value,
-      'brightBlack': theme.brightBlack.value,
-      'brightRed': theme.brightRed.value,
-      'brightGreen': theme.brightGreen.value,
-      'brightYellow': theme.brightYellow.value,
-      'brightBlue': theme.brightBlue.value,
-      'brightMagenta': theme.brightMagenta.value,
-      'brightCyan': theme.brightCyan.value,
-      'brightWhite': theme.brightWhite.value,
-      'searchHitBackground': theme.searchHitBackground.value,
-      'searchHitBackgroundCurrent': theme.searchHitBackgroundCurrent.value,
-      'searchHitForeground': theme.searchHitForeground.value,
+      'cursor': theme.cursor.toARGB32(),
+      'selection': theme.selection.toARGB32(),
+      'foreground': theme.foreground.toARGB32(),
+      'background': theme.background.toARGB32(),
+      'black': theme.black.toARGB32(),
+      'white': theme.white.toARGB32(),
+      'red': theme.red.toARGB32(),
+      'green': theme.green.toARGB32(),
+      'yellow': theme.yellow.toARGB32(),
+      'blue': theme.blue.toARGB32(),
+      'magenta': theme.magenta.toARGB32(),
+      'cyan': theme.cyan.toARGB32(),
+      'brightBlack': theme.brightBlack.toARGB32(),
+      'brightRed': theme.brightRed.toARGB32(),
+      'brightGreen': theme.brightGreen.toARGB32(),
+      'brightYellow': theme.brightYellow.toARGB32(),
+      'brightBlue': theme.brightBlue.toARGB32(),
+      'brightMagenta': theme.brightMagenta.toARGB32(),
+      'brightCyan': theme.brightCyan.toARGB32(),
+      'brightWhite': theme.brightWhite.toARGB32(),
+      'searchHitBackground': theme.searchHitBackground.toARGB32(),
+      'searchHitBackgroundCurrent': theme.searchHitBackgroundCurrent.toARGB32(),
+      'searchHitForeground': theme.searchHitForeground.toARGB32(),
     };
   }
 
@@ -271,7 +289,9 @@ class TerminalThemeController extends GetxController {
       brightCyan: Color(json['brightCyan'] ?? 0xFF29B8DB),
       brightWhite: Color(json['brightWhite'] ?? 0xFFFFFFFF),
       searchHitBackground: Color(json['searchHitBackground'] ?? 0xFFFFFF2B),
-      searchHitBackgroundCurrent: Color(json['searchHitBackgroundCurrent'] ?? 0xFF31FF26),
+      searchHitBackgroundCurrent: Color(
+        json['searchHitBackgroundCurrent'] ?? 0xFF31FF26,
+      ),
       searchHitForeground: Color(json['searchHitForeground'] ?? 0xFF000000),
     );
   }

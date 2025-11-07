@@ -14,7 +14,7 @@ class EnvironmentStatusWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       color: isOk ? colorScheme.primaryContainer : colorScheme.errorContainer,
@@ -24,7 +24,9 @@ class EnvironmentStatusWidget extends StatelessWidget {
           children: [
             Icon(
               isOk ? Icons.check_circle : Icons.error,
-              color: isOk ? colorScheme.onPrimaryContainer : colorScheme.onErrorContainer,
+              color: isOk
+                  ? colorScheme.onPrimaryContainer
+                  : colorScheme.onErrorContainer,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -32,7 +34,9 @@ class EnvironmentStatusWidget extends StatelessWidget {
                 isOk ? 'Environment OK' : 'Environment Check Failed',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w500,
-                  color: isOk ? colorScheme.onPrimaryContainer : colorScheme.onErrorContainer,
+                  color: isOk
+                      ? colorScheme.onPrimaryContainer
+                      : colorScheme.onErrorContainer,
                 ),
               ),
             ),

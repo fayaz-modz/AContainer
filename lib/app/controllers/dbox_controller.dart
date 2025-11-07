@@ -138,7 +138,12 @@ class DboxController extends GetxController {
     yield* CommandController.runRootStream(command).map((output) {
       if (output.type == OutputType.exitCode && output.line == '0') {
         // Operation succeeded, refresh list to include new container
-        list().then((_) {}, onError: (e) => CommandController.logger.w('Failed to refresh list after create: $e'));
+        list().then(
+          (_) {},
+          onError: (e) => CommandController.logger.w(
+            'Failed to refresh list after create: $e',
+          ),
+        );
       }
       return output;
     });
@@ -211,7 +216,12 @@ class DboxController extends GetxController {
     yield* CommandController.runRootStream(command).map((output) {
       if (output.type == OutputType.exitCode && output.line == '0') {
         // Operation succeeded, refresh status to update list
-        status(name).then((_) {}, onError: (e) => CommandController.logger.w('Failed to refresh status after recreate: $e'));
+        status(name).then(
+          (_) {},
+          onError: (e) => CommandController.logger.w(
+            'Failed to refresh status after recreate: $e',
+          ),
+        );
       }
       return output;
     });
@@ -224,7 +234,12 @@ class DboxController extends GetxController {
     yield* CommandController.runRootStream(command).map((output) {
       if (output.type == OutputType.exitCode && output.line == '0') {
         // Operation succeeded, refresh status to update list
-        status(name).then((_) {}, onError: (e) => CommandController.logger.w('Failed to refresh status after start: $e'));
+        status(name).then(
+          (_) {},
+          onError: (e) => CommandController.logger.w(
+            'Failed to refresh status after start: $e',
+          ),
+        );
       }
       return output;
     });
@@ -237,7 +252,12 @@ class DboxController extends GetxController {
     yield* CommandController.runRootStream(command).map((output) {
       if (output.type == OutputType.exitCode && output.line == '0') {
         // Operation succeeded, refresh status to update list
-        status(name).then((_) {}, onError: (e) => CommandController.logger.w('Failed to refresh status after stop: $e'));
+        status(name).then(
+          (_) {},
+          onError: (e) => CommandController.logger.w(
+            'Failed to refresh status after stop: $e',
+          ),
+        );
       }
       return output;
     });
@@ -287,7 +307,7 @@ class DboxController extends GetxController {
         .where((output) => output.type == OutputType.stdout)
         .map((output) => output.line)
         .toList();
-    
+
     return outputLines.join('\n');
   }
 
@@ -321,7 +341,7 @@ class DboxController extends GetxController {
   Pty? attach(String name, {String? shell}) {
     final configPath = getConfigPath();
     String command;
-    
+
     if (shell != null) {
       if (name.isNotEmpty) {
         // Execute shell inside container
@@ -339,7 +359,7 @@ class DboxController extends GetxController {
       command =
           'su -c "DBOX_CONFIG=$configPath exec ${getRootPath()}/bin/dbox attach $name"';
     }
-    
+
     Logger().i('Starting PTY with shell command: su -c \\"$command\\"');
     return Pty.start("sh", arguments: ["-c", command]);
   }

@@ -266,7 +266,7 @@ class TerminalSettingsView extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              '#${color.value.toRadixString(16).substring(2).toUpperCase()}',
+              '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
@@ -467,7 +467,7 @@ class _ColorPickerState extends State<ColorPicker> {
           ),
           controller: TextEditingController(
             text:
-                '#${_selectedColor.value.toRadixString(16).substring(2).toUpperCase()}',
+                '#${_selectedColor.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
           ),
           onChanged: (value) {
             if (value.startsWith('#') && value.length == 7) {

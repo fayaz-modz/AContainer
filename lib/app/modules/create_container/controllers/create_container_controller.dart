@@ -25,12 +25,12 @@ class CreateContainerController extends GetxController {
 
   final isLoading = false.obs;
   final errorMessage = ''.obs;
-   final showAdvanced = true.obs;
+  final showAdvanced = true.obs;
   final containerType = ContainerType.service.obs;
   final networkType = 'host'.obs; // 'host' or 'custom'
   final initType = 'none'.obs; // predefined init types
-   final vmInitType = 'none'.obs; // separate init type for VM containers
-  
+  final vmInitType = 'none'.obs; // separate init type for VM containers
+
   // Edit mode
   final isEditMode = false.obs;
   final originalContainerName = ''.obs;
@@ -51,7 +51,7 @@ class CreateContainerController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    
+
     // Check if we're in edit mode
     final args = Get.arguments as Map<String, dynamic>? ?? {};
     final containerName = args['containerName'] as String?;
@@ -60,7 +60,7 @@ class CreateContainerController extends GetxController {
       originalContainerName.value = containerName;
       _loadContainerData(containerName);
     }
-    
+
     // Set default values for VM container
     ever(containerType, (ContainerType type) {
       if (type == ContainerType.vm) {
@@ -204,10 +204,10 @@ class CreateContainerController extends GetxController {
 
   String getInitValue() {
     // Use appropriate init type based on container type
-    final currentInitType = containerType.value == ContainerType.vm 
-        ? vmInitType.value 
+    final currentInitType = containerType.value == ContainerType.vm
+        ? vmInitType.value
         : initType.value;
-    
+
     if (currentInitType == 'custom') {
       return initController.text.trim();
     }
@@ -216,8 +216,8 @@ class CreateContainerController extends GetxController {
 
   // Get current init type based on container type
   String get currentInitType {
-    return containerType.value == ContainerType.vm 
-        ? vmInitType.value 
+    return containerType.value == ContainerType.vm
+        ? vmInitType.value
         : initType.value;
   }
 
@@ -252,7 +252,9 @@ class CreateContainerController extends GetxController {
     errorMessage.value = '';
 
     try {
-      final name = isEditMode.value ? originalContainerName.value : nameController.text.trim();
+      final name = isEditMode.value
+          ? originalContainerName.value
+          : nameController.text.trim();
       final image = isEditMode.value ? null : imageController.text.trim();
 
       // Parse environment variables
@@ -313,7 +315,7 @@ class CreateContainerController extends GetxController {
           : int.tryParse(blkioWeightController.text.trim());
 
       Stream<CommandOutput> createStream;
-      
+
       if (isEditMode.value) {
         // Recreate container using dbox (image is optional override)
         createStream = dboxController.recreate(
@@ -398,7 +400,7 @@ class CreateContainerController extends GetxController {
     try {
       // Get container info using dbox info command
       final infoOutput = await dboxController.getContainerInfo(containerName);
-      
+
       // Parse the info output to populate form fields
       _parseContainerInfo(infoOutput);
     } catch (e) {
@@ -413,7 +415,7 @@ class CreateContainerController extends GetxController {
     bool currentPrivileged = false;
     String? currentNetwork;
     bool currentTTY = false;
-    
+
     // Parse basic info
     for (final line in lines) {
       if (line.startsWith('  Image: ')) {
@@ -428,62 +430,62 @@ class CreateContainerController extends GetxController {
         currentInit = line.substring(15).trim();
       }
     }
-    
-     // Determine container type based on settings
-     if (currentPrivileged && currentTTY) {
-       containerType.value = ContainerType.vm;
-     } else {
-       containerType.value = ContainerType.service;
-     }
 
-     // Populate form fields
-     if (currentImage != null) {
-       imageController.text = currentImage;
-     }
+    // Determine container type based on settings
+    if (currentPrivileged && currentTTY) {
+      containerType.value = ContainerType.vm;
+    } else {
+      containerType.value = ContainerType.service;
+    }
 
-     privileged.value = currentPrivileged;
-     tty.value = currentTTY;
+    // Populate form fields
+    if (currentImage != null) {
+      imageController.text = currentImage;
+    }
 
-     if (currentNetwork != null) {
-       if (currentNetwork == 'host') {
-         networkType.value = 'host';
-       } else {
-         networkType.value = 'custom';
-         customNetworkController.text = currentNetwork;
-       }
-     }
+    privileged.value = currentPrivileged;
+    tty.value = currentTTY;
 
-     if (currentInit != null) {
-       initController.text = currentInit;
-       // Try to match with predefined init types
-       bool foundMatch = false;
-       for (final entry in predefinedInits.entries) {
-         if (entry.value == currentInit) {
-           if (containerType.value == ContainerType.vm) {
-             vmInitType.value = entry.key;
-           } else {
-             initType.value = entry.key;
-           }
-           foundMatch = true;
-           break;
-         }
-       }
-       if (!foundMatch) {
-         if (containerType.value == ContainerType.vm) {
-           vmInitType.value = 'custom';
-         } else {
-           initType.value = 'custom';
-         }
-       }
-     } else {
-       // If no init process in info, set to 'none'
-       if (containerType.value == ContainerType.vm) {
-         vmInitType.value = 'none';
-       } else {
-         initType.value = 'none';
-       }
-     }
-    
+    if (currentNetwork != null) {
+      if (currentNetwork == 'host') {
+        networkType.value = 'host';
+      } else {
+        networkType.value = 'custom';
+        customNetworkController.text = currentNetwork;
+      }
+    }
+
+    if (currentInit != null) {
+      initController.text = currentInit;
+      // Try to match with predefined init types
+      bool foundMatch = false;
+      for (final entry in predefinedInits.entries) {
+        if (entry.value == currentInit) {
+          if (containerType.value == ContainerType.vm) {
+            vmInitType.value = entry.key;
+          } else {
+            initType.value = entry.key;
+          }
+          foundMatch = true;
+          break;
+        }
+      }
+      if (!foundMatch) {
+        if (containerType.value == ContainerType.vm) {
+          vmInitType.value = 'custom';
+        } else {
+          initType.value = 'custom';
+        }
+      }
+    } else {
+      // If no init process in info, set to 'none'
+      if (containerType.value == ContainerType.vm) {
+        vmInitType.value = 'none';
+      } else {
+        initType.value = 'none';
+      }
+    }
+
     if (currentInit != null) {
       initController.text = currentInit;
       // Try to match with predefined init types
@@ -507,10 +509,10 @@ class CreateContainerController extends GetxController {
         }
       }
     }
-    
+
     privileged.value = currentPrivileged;
     tty.value = currentTTY;
-    
+
     if (currentNetwork != null) {
       if (currentNetwork == 'host') {
         networkType.value = 'host';
@@ -519,7 +521,7 @@ class CreateContainerController extends GetxController {
         customNetworkController.text = currentNetwork;
       }
     }
-    
+
     // If no init process in info, set to 'none'
     if (currentInit == null) {
       if (containerType.value == ContainerType.vm) {
@@ -552,21 +554,20 @@ class CreateContainerController extends GetxController {
     errorMessage.value = '';
     envVars.clear();
     volumes.clear();
-     showAdvanced.value = true;
+    showAdvanced.value = true;
     networkType.value = 'host';
-     initType.value = 'none';
-     vmInitType.value = 'none';
+    initType.value = 'none';
+    vmInitType.value = 'none';
     isEditMode.value = false;
     originalContainerName.value = '';
 
-     // Reset boolean flags
-     tty.value = false;
-     privileged.value = false;
-     noOverlayfs.value = false;
+    // Reset boolean flags
+    tty.value = false;
+    privileged.value = false;
+    noOverlayfs.value = false;
 
-     // Reset form states
-     serviceFormKey.currentState?.reset();
-     vmFormKey.currentState?.reset();
+    // Reset form states
+    serviceFormKey.currentState?.reset();
+    vmFormKey.currentState?.reset();
   }
 }
-

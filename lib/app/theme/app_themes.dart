@@ -115,8 +115,6 @@ class AppThemes {
       secondary: Color(0xFFDC8A78),
       surface: Color(0xFFEFF1F5),
       onSurface: Color(0xFF4C4F69),
-      background: Color(0xFFEFF1F5),
-      onBackground: Color(0xFF4C4F69),
       onPrimary: Color(0xFFFFFFFF),
       onSecondary: Color(0xFF000000),
     ),
@@ -162,8 +160,6 @@ class AppThemes {
       secondary: Color(0xFFF2D5CF),
       surface: Color(0xFF303446),
       onSurface: Color(0xFFC6D0F5),
-      background: Color(0xFF303446),
-      onBackground: Color(0xFFC6D0F5),
       onPrimary: Color(0xFF000000),
       onSecondary: Color(0xFF000000),
     ),
@@ -209,8 +205,6 @@ class AppThemes {
       secondary: Color(0xFFF4DBD6),
       surface: Color(0xFF24273A),
       onSurface: Color(0xFFCAD3F5),
-      background: Color(0xFF24273A),
-      onBackground: Color(0xFFCAD3F5),
       onPrimary: Color(0xFF000000),
       onSecondary: Color(0xFF000000),
     ),
@@ -256,8 +250,6 @@ class AppThemes {
       secondary: Color(0xFFf5e0dc),
       surface: Color(0xFF1e1e2e),
       onSurface: Color(0xFFcdd6f4),
-      background: Color(0xFF1e1e2e),
-      onBackground: Color(0xFFcdd6f4),
       onPrimary: Color(0xFF000000),
       onSecondary: Color(0xFF000000),
     ),
@@ -443,4 +435,3 @@ class AppThemes {
     );
   }
 }
-

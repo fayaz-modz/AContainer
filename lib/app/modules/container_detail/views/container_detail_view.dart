@@ -326,9 +326,7 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
 
                               Get.toNamed(
                                 '/terminal',
-                                arguments: {
-                                  'controller': session.controller,
-                                },
+                                arguments: {'controller': session.controller},
                               );
                             }
                           : null,

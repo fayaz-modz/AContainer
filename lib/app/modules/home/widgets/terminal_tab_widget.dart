@@ -43,7 +43,10 @@ class TerminalTabWidget extends StatelessWidget {
               height: 6,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _getStatusColor(session.container.state.name, colorScheme),
+                color: _getStatusColor(
+                  session.container.state.name,
+                  colorScheme,
+                ),
               ),
             ),
             const SizedBox(width: 4),
@@ -69,11 +72,7 @@ class TerminalTabWidget extends StatelessWidget {
                 ),
               ),
             IconButton(
-              icon: Icon(
-                Icons.close,
-                color: colorScheme.error,
-                size: 20,
-              ),
+              icon: Icon(Icons.close, color: colorScheme.error, size: 20),
               onPressed: () {
                 showDialog(
                   context: context,

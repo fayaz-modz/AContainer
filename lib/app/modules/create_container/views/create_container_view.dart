@@ -218,12 +218,12 @@ class CreateContainerView extends GetView<CreateContainerController> {
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.play_arrow),
                     ),
-                     items: const [
-                       DropdownMenuItem(value: 'none', child: Text('None')),
-                       DropdownMenuItem(
-                         value: 'systemd',
-                         child: Text('systemd (/lib/systemd/systemd)'),
-                       ),
+                    items: const [
+                      DropdownMenuItem(value: 'none', child: Text('None')),
+                      DropdownMenuItem(
+                        value: 'systemd',
+                        child: Text('systemd (/lib/systemd/systemd)'),
+                      ),
                       DropdownMenuItem(
                         value: 'init',
                         child: Text('sysvinit (/sbin/init)'),
@@ -596,8 +596,6 @@ class CreateContainerView extends GetView<CreateContainerController> {
     }
   }
 
-
-
   Widget _buildAdvancedSettings(ContainerType type, BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -613,125 +611,128 @@ class CreateContainerView extends GetView<CreateContainerController> {
         ),
         const SizedBox(height: 16),
 
-         // Boolean flags
-         Container(
-           decoration: BoxDecoration(
-             border: Border.all(color: Colors.grey.shade300),
-             borderRadius: BorderRadius.circular(12),
-           ),
-           child: Column(
-             children: [
-               Obx(
-                 () => CheckboxListTile(
-                   title: const Text('TTY'),
-                   subtitle: const Text('Allocate TTY devices'),
-                   value: controller.tty.value,
-                   onChanged: (value) => controller.tty.value = value ?? false,
-                   contentPadding: const EdgeInsets.symmetric(
-                     horizontal: 16,
-                     vertical: 4,
-                   ),
-                 ),
-               ),
-               Divider(height: 1, color: Colors.grey.shade300),
-               Obx(
-                 () => CheckboxListTile(
-                   title: const Text('Privileged'),
-                   subtitle: const Text('Full system capabilities'),
-                   value: controller.privileged.value,
-                   onChanged: (value) =>
-                       controller.privileged.value = value ?? false,
-                   contentPadding: const EdgeInsets.symmetric(
-                     horizontal: 16,
-                     vertical: 4,
-                   ),
-                 ),
-               ),
-                if (type == ContainerType.vm) ...[
-                  Divider(height: 1, color: Colors.grey.shade300),
-                  // VM-specific note
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text(
-                      'Note: VM containers typically require TTY and Privileged mode enabled for proper operation.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ),
-                ] else ...[
-                  Divider(height: 1, color: Colors.grey.shade300),
-                  // Init Process option for Service Containers
-                  ListTile(
-                    title: const Text('Init Process'),
-                    subtitle: Obx(
-                      () => Text(
-                        controller.initType.value == 'none'
-                            ? 'No init process (default)'
-                            : 'Init process to run inside container',
-                      ),
-                    ),
-                    trailing: Obx(
-                      () => DropdownButton<String>(
-                        value: controller.initType.value,
-                        underline: Container(),
-                        items: const [
-                          DropdownMenuItem(value: 'none', child: Text('None')),
-                          DropdownMenuItem(
-                            value: 'systemd',
-                            child: Text('systemd'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'init',
-                            child: Text('sysvinit'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'openrc',
-                            child: Text('OpenRC'),
-                          ),
-                          DropdownMenuItem(value: 'runit', child: Text('runit')),
-                          DropdownMenuItem(value: 'bash', child: Text('Bash')),
-                          DropdownMenuItem(value: 'sh', child: Text('Shell')),
-                          DropdownMenuItem(
-                            value: 'custom',
-                            child: Text('Custom'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            controller.initType.value = value;
-                          }
-                        },
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
-                    ),
-                  ),
-                  // Custom init input (only shown when 'custom' is selected)
-                  Obx(
-                    () => controller.currentInitType == 'custom'
-                        ? Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: TextFormField(
-                              controller: controller.initController,
-                              decoration: const InputDecoration(
-                                labelText: 'Custom Init Path',
-                                hintText: 'e.g., /usr/local/bin/custom-init',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.settings),
-                              ),
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                ],
-             ],
-           ),
+        // Boolean flags
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
           ),
+          child: Column(
+            children: [
+              Obx(
+                () => CheckboxListTile(
+                  title: const Text('TTY'),
+                  subtitle: const Text('Allocate TTY devices'),
+                  value: controller.tty.value,
+                  onChanged: (value) => controller.tty.value = value ?? false,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                ),
+              ),
+              Divider(height: 1, color: Colors.grey.shade300),
+              Obx(
+                () => CheckboxListTile(
+                  title: const Text('Privileged'),
+                  subtitle: const Text('Full system capabilities'),
+                  value: controller.privileged.value,
+                  onChanged: (value) =>
+                      controller.privileged.value = value ?? false,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                ),
+              ),
+              if (type == ContainerType.vm) ...[
+                Divider(height: 1, color: Colors.grey.shade300),
+                // VM-specific note
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Text(
+                    'Note: VM containers typically require TTY and Privileged mode enabled for proper operation.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ] else ...[
+                Divider(height: 1, color: Colors.grey.shade300),
+                // Init Process option for Service Containers
+                ListTile(
+                  title: const Text('Init Process'),
+                  subtitle: Obx(
+                    () => Text(
+                      controller.initType.value == 'none'
+                          ? 'No init process (default)'
+                          : 'Init process to run inside container',
+                    ),
+                  ),
+                  trailing: Obx(
+                    () => DropdownButton<String>(
+                      value: controller.initType.value,
+                      underline: Container(),
+                      items: const [
+                        DropdownMenuItem(value: 'none', child: Text('None')),
+                        DropdownMenuItem(
+                          value: 'systemd',
+                          child: Text('systemd'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'init',
+                          child: Text('sysvinit'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'openrc',
+                          child: Text('OpenRC'),
+                        ),
+                        DropdownMenuItem(value: 'runit', child: Text('runit')),
+                        DropdownMenuItem(value: 'bash', child: Text('Bash')),
+                        DropdownMenuItem(value: 'sh', child: Text('Shell')),
+                        DropdownMenuItem(
+                          value: 'custom',
+                          child: Text('Custom'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          controller.initType.value = value;
+                        }
+                      },
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                ),
+                // Custom init input (only shown when 'custom' is selected)
+                Obx(
+                  () => controller.currentInitType == 'custom'
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: TextFormField(
+                            controller: controller.initController,
+                            decoration: const InputDecoration(
+                              labelText: 'Custom Init Path',
+                              hintText: 'e.g., /usr/local/bin/custom-init',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.settings),
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ],
+          ),
+        ),
 
         // Hide No OverlayFS in edit mode (not supported by recreate)
         Obx(

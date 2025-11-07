@@ -33,13 +33,13 @@ class ContainerCardWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       clipBehavior: Clip.antiAlias,
       child: Slidable(
         key: ValueKey(container.name),
-        
+
         // Left swipe - auto attach with elastic feel
         startActionPane: ActionPane(
           motion: const ScrollMotion(),
@@ -57,16 +57,14 @@ class ContainerCardWidget extends StatelessWidget {
             ),
           ],
         ),
-        
+
         // Right swipe - action buttons
         endActionPane: ActionPane(
           motion: const BehindMotion(),
           extentRatio: 0.75,
           children: _buildActionButtons(context, theme, colorScheme),
         ),
-        
 
-        
         child: InkWell(
           onTap: _openDetail,
           borderRadius: BorderRadius.circular(12),
@@ -103,9 +101,15 @@ class ContainerCardWidget extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  backgroundColor: _getChipBackgroundColor(container.state, colorScheme),
+                  backgroundColor: _getChipBackgroundColor(
+                    container.state,
+                    colorScheme,
+                  ),
                   side: _getChipSide(container.state, colorScheme),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                 ),
               ],
             ),
@@ -118,20 +122,12 @@ class ContainerCardWidget extends StatelessWidget {
   void _openTerminal() {
     final sessionController = Get.find<TerminalSessionController>();
     final session = sessionController.getOrCreateSession(container);
-    
-    Get.toNamed(
-      Routes.TERMINAL,
-      arguments: {
-        'controller': session.controller,
-      },
-    );
+
+    Get.toNamed(Routes.TERMINAL, arguments: {'controller': session.controller});
   }
 
   void _openDetail() {
-    final args = {
-      'containerName': container.name,
-      'container': container,
-    };
+    final args = {'containerName': container.name, 'container': container};
     _logger.d('Navigating to container detail with args: $args');
     _logger.d('Container name: ${container.name}');
     _logger.d('Container image: ${container.image}');
@@ -143,9 +139,13 @@ class ContainerCardWidget extends StatelessWidget {
     _openTerminal();
   }
 
-  List<Widget> _buildActionButtons(BuildContext context, ThemeData theme, ColorScheme colorScheme) {
+  List<Widget> _buildActionButtons(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     final isRunning = container.state == ContainerState.running;
-    
+
     if (isRunning) {
       // Running container: Stop, Attach, Edit
       return [
@@ -205,10 +205,7 @@ class ContainerCardWidget extends StatelessWidget {
   }
 
   void _editContainer() {
-    final args = {
-      'containerName': container.name,
-      'container': container,
-    };
+    final args = {'containerName': container.name, 'container': container};
     Get.toNamed(Routes.EDIT_CONTAINER, arguments: args);
   }
 
@@ -245,4 +242,3 @@ class ContainerCardWidget extends StatelessWidget {
     }
   }
 }
-

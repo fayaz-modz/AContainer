@@ -529,9 +529,7 @@ class ContainerDetailController extends GetxController {
     // Navigate to edit container page
     Get.toNamed(
       '/edit-container',
-      arguments: {
-        'containerName': containerName.value,
-      },
+      arguments: {'containerName': containerName.value},
     );
   }
 

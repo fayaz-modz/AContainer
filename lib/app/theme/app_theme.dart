@@ -3,19 +3,23 @@ import 'package:flutter/services.dart';
 
 class AppTheme {
   static ThemeData lightTheme([ColorScheme? dynamicColorScheme]) {
-    final colorScheme = dynamicColorScheme ?? ColorScheme.fromSeed(
-      seedColor: Color(0xFF6750A4),
-      brightness: Brightness.light,
-    );
+    final colorScheme =
+        dynamicColorScheme ??
+        ColorScheme.fromSeed(
+          seedColor: Color(0xFF6750A4),
+          brightness: Brightness.light,
+        );
 
     return _buildThemeData(colorScheme, dynamicColorScheme);
   }
 
   static ThemeData darkTheme([ColorScheme? dynamicColorScheme]) {
-    final colorScheme = dynamicColorScheme ?? ColorScheme.fromSeed(
-      seedColor: Color(0xFF6750A4),
-      brightness: Brightness.dark,
-    );
+    final colorScheme =
+        dynamicColorScheme ??
+        ColorScheme.fromSeed(
+          seedColor: Color(0xFF6750A4),
+          brightness: Brightness.dark,
+        );
 
     return _buildThemeData(colorScheme, dynamicColorScheme);
   }
@@ -207,6 +211,3 @@ class AppTheme {
     );
   }
 }
-
-
-
