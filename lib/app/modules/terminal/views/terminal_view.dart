@@ -78,11 +78,8 @@ class TerminalView extends GetView<TerminalController> {
                           .clamp(8.0, 24.0);
                     },
                     child: xterm.TerminalView(
-                      key: Key('term'),
                       terminalController.terminal,
                       controller: terminalController.terminalController,
-                      simulateScroll: false,
-                      backgroundOpacity: 1.0,
                       theme: terminalController
                           .terminalThemeController
                           .terminalTheme,

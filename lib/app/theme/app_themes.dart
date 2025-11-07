@@ -34,7 +34,7 @@ class AppThemes {
     ),
     terminalTheme: xterm.TerminalTheme(
       cursor: Color(0XAAAEAFAD),
-      selection: Color(0XAAAEAFAD),
+      selection: Color(0X80AEAFAD),
       foreground: Color(0XFFCCCCCC),
       background: Color(0XFF1E1E1E),
       black: Color(0XFF000000),
@@ -75,7 +75,7 @@ class AppThemes {
     ),
     terminalTheme: xterm.TerminalTheme(
       cursor: Color(0XAAAEAFAD),
-      selection: Color(0XAAAEAFAD),
+      selection: Color(0X80AEAFAD),
       foreground: Color(0XFFCCCCCC),
       background: Color(0XFF1E1E1E),
       black: Color(0XFF000000),
@@ -263,7 +263,7 @@ class AppThemes {
     ),
     terminalTheme: xterm.TerminalTheme(
       cursor: Color(0xFFf5e0dc),
-      selection: Color(0xFFf5e0dc),
+      selection: Color(0x80f5e0dc),
       foreground: Color(0xFFcdd6f4),
       background: Color(0xFF1e1e2e),
       black: Color(0xFF45475a),
@@ -443,3 +443,4 @@ class AppThemes {
     );
   }
 }
+
