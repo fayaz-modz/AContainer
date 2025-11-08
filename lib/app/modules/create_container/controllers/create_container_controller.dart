@@ -422,6 +422,7 @@ class CreateContainerController extends GetxController {
     final currentNetwork = infoOutput['network_namespace'] as String?;
     final currentTTY = infoOutput['tty'] as bool? ?? false;
     final currentVolumes = infoOutput['volumes'] as List<dynamic>? ?? [];
+    final currentEnvVars = infoOutput['environment_variables'] as List<dynamic>? ?? [];
 
     // Determine container type based on settings
     if (currentPrivileged && currentTTY) {
@@ -475,6 +476,27 @@ class CreateContainerController extends GetxController {
         vmInitType.value = 'none';
       } else {
         initType.value = 'none';
+      }
+    }
+
+    // Parse environment variables
+    envVars.clear();
+    for (final envVar in currentEnvVars) {
+      if (envVar is String) {
+        // Parse environment variable string in format "key=value"
+        final parts = envVar.split('=');
+        if (parts.length >= 2) {
+          envVars.add({
+            'key': parts[0],
+            'value': parts.sublist(1).join('='), // Handle values with '='
+          });
+        } else if (parts.length == 1) {
+          // Handle case where there's no '=' (just a key)
+          envVars.add({
+            'key': parts[0],
+            'value': '',
+          });
+        }
       }
     }
 

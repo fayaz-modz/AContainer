@@ -58,10 +58,10 @@ class ContainerInfo {
 
   factory ContainerInfo.fromJson(Map<String, dynamic> json) {
     return ContainerInfo(
-      name: json['CONTAINER_NAME'] ?? '',
-      image: json['IMAGE'] ?? '',
-      state: parseStatus(json['STATUS'] ?? ''),
-      created: json['CREATED'] ?? '',
+      name: json['container_name'] ?? '',
+      image: json['image'] ?? '',
+      state: parseStatus(json['status'] ?? ''),
+      created: json['created'] ?? '',
     );
   }
 
