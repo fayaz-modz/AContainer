@@ -76,8 +76,8 @@ class TerminalController extends GetxController {
 
       // Start PTY - prioritize custom PTY over container name
       if (pty.value.isNotEmpty) {
-        // Use dbox attach method with empty container name and custom shell
-        _pty = dbox.attach('', shell: pty.value);
+        // Use dbox attach method with container name and custom shell command
+        _pty = dbox.attach(containerName.value, shell: pty.value);
       } else {
         _pty = dbox.attach(containerName.value);
       }
@@ -130,49 +130,32 @@ class TerminalController extends GetxController {
             );
             isConnected.value = false;
             _pty = null;
-            
-            // Update container state to exited if this is a container session
-            if (containerName.value.isNotEmpty) {
-              // Find and update the container in the dbox controller
-              final dboxController = Get.find<DboxController>();
-              final containerIndex = dboxController.containers.indexWhere(
-                (c) => c.name == containerName.value,
-              );
-              if (containerIndex != -1) {
-                final updatedContainer = ContainerInfo(
-                  name: dboxController.containers[containerIndex].name,
-                  image: dboxController.containers[containerIndex].image,
-                  state: ContainerState.exited,
-                  created: dboxController.containers[containerIndex].created,
-                );
-                dboxController.containers[containerIndex] = updatedContainer;
-              }
-            } else {
-              // Handle system shell session state update
-              final sessionController = Get.find<TerminalSessionController>();
-              final systemSession = sessionController.sessions.values.firstWhere(
-                (session) => session.container.name == 'System Shell',
-                orElse: () => throw Exception('System Shell session not found'),
-              );
-              
-              // Update the system shell session container state
-              final updatedSystemContainer = ContainerInfo(
-                name: 'System Shell',
-                image: 'system',
-                state: ContainerState.exited,
-                created: systemSession.container.created,
-              );
-              
-              // Update the session with new container state
-              final sessionId = sessionController.sessions.keys.firstWhere(
-                (key) => sessionController.sessions[key] == systemSession,
-              );
-              sessionController.sessions[sessionId] = TerminalSession(
-                id: systemSession.id,
-                container: updatedSystemContainer,
-                controller: systemSession.controller,
-              );
-            }
+
+            // Only update the session state to exited, not the container state
+            // The container continues running even if the terminal session ends
+            final sessionController = Get.find<TerminalSessionController>();
+            final sessionEntry = sessionController.sessions.entries.firstWhere(
+              (entry) => entry.value.controller == this,
+              orElse: () =>
+                  throw Exception('Session not found for this controller'),
+            );
+
+            final session = sessionEntry.value;
+            final updatedContainer = ContainerInfo(
+              name: session.container.name,
+              image: session.container.image,
+              state: ContainerState.exited,
+              created: session.container.created,
+            );
+
+            // Update only the session with new container state
+            sessionController.sessions[sessionEntry.key] = TerminalSession(
+              id: session.id,
+              container: updatedContainer,
+              controller: session.controller,
+            );
+
+            // Do NOT update the container in dbox controller - container continues running
           })
           .catchError((error) {
             logger.e('PTY exit error: $error');
@@ -273,8 +256,12 @@ class TerminalController extends GetxController {
       // Get container name and PTY command from arguments
       final args = Get.arguments as Map<String, dynamic>?;
       if (args != null) {
-        containerName.value = args['containerName'] as String? ?? '';
-        pty.value = args['pty'] as String? ?? '';
+        if (args['containerName'] != null) {
+          containerName.value = args['containerName'] as String;
+        }
+        if (args['pty'] != null) {
+          pty.value = args['pty'] as String? ?? '';
+        }
       }
 
       logger.i(

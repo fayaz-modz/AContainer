@@ -16,6 +16,7 @@ class TerminalView extends GetView<TerminalController> {
 
   @override
   Widget build(BuildContext context) {
+    Logger.dS('${_terminalController?.pty.value}');
     // Get controller from arguments if provided, otherwise use injected controller
     final args = Get.arguments as Map<String, dynamic>?;
     final TerminalController terminalController =

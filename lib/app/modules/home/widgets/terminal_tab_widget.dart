@@ -74,31 +74,36 @@ class TerminalTabWidget extends StatelessWidget {
             IconButton(
               icon: Icon(Icons.close, color: colorScheme.error, size: 20),
               onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Close Session'),
-                    content: Text(
-                      'Close terminal session for "${session.container.name}"?',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cancel'),
+                // If session has already exited, close directly without confirmation
+                if (session.container.state == ContainerState.exited) {
+                  onClose();
+                } else {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Close Session'),
+                      content: Text(
+                        'Close terminal session for "${session.container.name}"?',
                       ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          onClose();
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: colorScheme.error,
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Cancel'),
                         ),
-                        child: const Text('Close'),
-                      ),
-                    ],
-                  ),
-                );
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            onClose();
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: colorScheme.error,
+                          ),
+                          child: const Text('Close'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
               },
               tooltip: 'Close session',
             ),

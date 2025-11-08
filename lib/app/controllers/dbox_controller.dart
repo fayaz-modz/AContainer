@@ -433,9 +433,11 @@ class DboxController extends GetxController {
           'su -c "DBOX_CONFIG=$configPath exec ${getRootPath()}/bin/dbox attach $name"';
     }
 
-    Logger().i('Starting PTY with shell command: su -c \\"$command\\"');
-    return Pty.start("sh", arguments: ["-c", command]);
+    Logger().i('Starting PTY with shell command: $command');
+    return Pty.start("su", arguments: ["-c", command]);
   }
+
+
 
   Future<CommandResult> createVolume(
     String name, [

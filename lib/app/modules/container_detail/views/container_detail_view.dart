@@ -1,3 +1,4 @@
+import 'package:acontainer/app/modules/terminal/views/terminal_view.dart';
 import 'package:acontainer/app/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -5,6 +6,8 @@ import 'package:acontainer/app/models/container.dart';
 import 'package:acontainer/app/controllers/dbox_controller.dart';
 import 'package:acontainer/app/controllers/terminal_session_controller.dart';
 import 'package:acontainer/app/views/logs_view.dart';
+import 'package:acontainer/app/widgets/exec_presets_dialog.dart';
+import 'package:acontainer/app/modules/terminal/controllers/terminal_controller.dart';
 
 import '../controllers/container_detail_controller.dart';
 
@@ -33,6 +36,9 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
       // logger.d('ContainerDetailView - manual initialization:');
       // logger.d('  containerName: ${controller.containerName.value}');
       // logger.d('  containerInfo: ${controller.containerInfo.value}');
+      // logger.d('  containerInfo.name: ${controller.containerInfo.value?.name}');
+      // logger.d('  containerInfo.image: ${controller.containerInfo.value?.image}');
+      // logger.d('  containerInfo.state: ${controller.containerInfo.value?.state}');
 
       if (controller.containerName.value.isNotEmpty) {
         controller.loadContainerStatus();
@@ -49,6 +55,24 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          Obx(() {
+            final containerInfo = controller.containerInfo.value;
+            final status = controller.containerStatus.value;
+            final currentState =
+                status?.status ??
+                containerInfo?.state ??
+                ContainerState.stopped;
+
+            return IconButton(
+              onPressed: currentState != ContainerState.creating
+                  ? controller.editContainer
+                  : null,
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Edit Container',
+            );
+          }),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -324,9 +348,11 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
                               final session = sessionController
                                   .getOrCreateSession(containerInfo);
 
-                              Get.toNamed(
-                                '/terminal',
-                                arguments: {'controller': session.controller},
+                              Get.to(
+                                () => TerminalView(
+                                  terminalController: session.controller,
+                                ),
+                                transition: Transition.rightToLeft,
                               );
                             }
                           : null,
@@ -340,27 +366,21 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showExecDialog(context),
+                      icon: const Icon(Icons.code, size: 16),
+                      label: const Text('Exec'),
+                    ),
+                  ),
                 ],
               ),
 
               const SizedBox(height: 8),
 
-              // Danger actions
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: isLoading
-                          ? null
-                          : () => controller.editContainer(),
-                      icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('Edit'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.blue,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: isLoading
@@ -373,13 +393,7 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
                       ),
                     ),
                   ),
-                ],
-              ),
-
-              const SizedBox(height: 8),
-
-              Row(
-                children: [
+                  const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: isLoading
@@ -392,10 +406,6 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: SizedBox(),
-                  ), // Empty space for alignment
                 ],
               ),
 
@@ -418,7 +428,7 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
                         child: Text(
                           isRunning
                               ? 'Click Attach to open a full-screen terminal connection'
-                              : 'Start the container to enable terminal attachment',
+                              : 'Start container to enable terminal attachment',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -433,6 +443,60 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
         }),
       ],
     );
+  }
+
+  void _showExecDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => ExecPresetsDialog(
+        containerName: controller.containerName.value,
+        onExecSelected: (command) => _executeCommand(command),
+      ),
+    );
+  }
+
+  void _executeCommand(String command) {
+    final sessionController = Get.find<TerminalSessionController>();
+    final containerInfo =
+        controller.containerInfo.value ??
+        ContainerInfo(
+          name: controller.containerName.value,
+          image: controller.containerInfo.value?.image ?? 'unknown',
+          state: ContainerState.running,
+          created: DateTime.now().toIso8601String(),
+        );
+
+    // Create a new terminal controller for this exec session
+    final terminalController = TerminalController();
+    terminalController.closeOnPageClose.value = false;
+
+    // Set the container name and PTY command BEFORE initialization
+    terminalController.containerName.value = containerInfo.name;
+    terminalController.pty.value = command;
+    Logger.eS('Executing command: $command ${terminalController.pty.value}');
+
+    // Create a session for this exec command
+    final session = TerminalSession(
+      id: DateTime.now().millisecondsSinceEpoch % 256,
+      container: containerInfo,
+      controller: terminalController,
+    );
+
+    // Add to sessions and navigate to terminal
+    sessionController.sessions[session.id] = session;
+
+    // Initialize controller after setting values
+    terminalController.onInit();
+
+    controller.logger.d(
+      'Navigating to terminal view for exec command: $command',
+    );
+    Get.to(
+      () => TerminalView(terminalController: terminalController),
+      transition: Transition.rightToLeft,
+    )?.then((_) {
+      controller.logger.d('Returned from terminal view');
+    });
   }
 
   Color _getStatusColor(ContainerState state, ColorScheme colorScheme) {
