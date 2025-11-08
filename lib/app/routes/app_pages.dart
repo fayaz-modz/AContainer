@@ -47,7 +47,7 @@ class AppPages {
     ),
     GetPage(
       name: _Paths.TERMINAL,
-      page: () => const TerminalView(),
+      page: () => TerminalView(),
       binding: TerminalBinding(),
     ),
     GetPage(

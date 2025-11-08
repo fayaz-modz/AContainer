@@ -18,7 +18,7 @@ class TerminalTabWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isRunning = session.container.state == ContainerState.running;
+    final isActive = session.container.state == ContainerState.running;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -62,7 +62,7 @@ class TerminalTabWidget extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isRunning)
+            if (isActive)
               TextButton.icon(
                 onPressed: onAttach,
                 icon: const Icon(Icons.open_in_new, size: 16),
@@ -104,7 +104,7 @@ class TerminalTabWidget extends StatelessWidget {
             ),
           ],
         ),
-        onTap: isRunning ? onAttach : null,
+        onTap: isActive ? onAttach : null,
       ),
     );
   }
@@ -114,6 +114,8 @@ class TerminalTabWidget extends StatelessWidget {
       case 'running':
         return colorScheme.primary;
       case 'stopped':
+        return colorScheme.error;
+      case 'exited':
         return colorScheme.error;
       case 'creating':
       case 'ready':

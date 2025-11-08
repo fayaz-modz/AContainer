@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:acontainer/app/controllers/command_controller.dart';
 import 'package:acontainer/app/models/container.dart';
+import 'package:acontainer/app/models/volume.dart';
 import 'package:acontainer/app/utils/logger.dart';
 import 'package:flutter_pty/flutter_pty.dart';
 import 'package:get/get.dart';
@@ -9,6 +11,7 @@ import 'package:get_storage/get_storage.dart';
 class DboxController extends GetxController {
   final box = GetStorage();
   RxList<ContainerInfo> containers = <ContainerInfo>[].obs;
+  RxList<VolumeInfo> volumes = <VolumeInfo>[].obs;
 
   String getRootPath() {
     return box.read("root_path") ?? "/data/acontainer";
@@ -40,7 +43,7 @@ class DboxController extends GetxController {
 
   Future<List<ContainerInfo>> list() async {
     final configPath = getConfigPath();
-    final command = 'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox list';
+    final command = 'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox list --json';
 
     final result = await CommandController.runRoot(command);
 
@@ -50,23 +53,65 @@ class DboxController extends GetxController {
     }
 
     final containerList = <ContainerInfo>[];
-    for (final output in result.outputs) {
-      if (output.type == OutputType.stdout) {
-        final line = output.line.trim();
-        if (line.isNotEmpty &&
-            !line.startsWith('CONTAINER_NAME') &&
-            !line.startsWith('----')) {
-          try {
-            containerList.add(ContainerInfo.fromOutput(line));
-          } catch (e) {
-            CommandController.logger.w('Failed to parse container line: $line');
+    try {
+      final outputLines = result.outputs
+          .where((output) => output.type == OutputType.stdout)
+          .map((output) => output.line)
+          .join('\n');
+      
+      if (outputLines.isNotEmpty) {
+        final List<dynamic> jsonList = jsonDecode(outputLines);
+        for (final item in jsonList) {
+          if (item is Map<String, dynamic>) {
+            containerList.add(ContainerInfo.fromJson(item));
           }
         }
       }
+    } catch (e) {
+      CommandController.logger.e('Failed to parse JSON container list: $e');
     }
 
     containers.value = containerList;
     return containerList;
+  }
+
+  Future<List<VolumeInfo>> listVolumes() async {
+    final configPath = getConfigPath();
+    final command =
+        'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox volume ls --json';
+
+    final result = await CommandController.runRoot(command);
+
+    if (result.exitCode != 0) {
+      CommandController.logger.e('Failed to list volumes');
+      return [];
+    }
+
+    final volumeList = <VolumeInfo>[];
+    try {
+      final outputLines = result.outputs
+          .where((output) => output.type == OutputType.stdout)
+          .map((output) => output.line)
+          .join('\n');
+      
+      if (outputLines.isNotEmpty) {
+        final List<dynamic> jsonList = jsonDecode(outputLines);
+        for (final item in jsonList) {
+          if (item is Map<String, dynamic>) {
+            volumeList.add(VolumeInfo.fromJson(item));
+          }
+        }
+      }
+    } catch (e) {
+      CommandController.logger.e('Failed to parse JSON volume list: $e');
+    }
+
+    volumes.value = volumeList;
+    return volumeList;
+  }
+
+  Future<void> refreshAll() async {
+    await Future.wait([list(), listVolumes()]);
   }
 
   Stream<CommandOutput> create({
@@ -138,10 +183,10 @@ class DboxController extends GetxController {
     yield* CommandController.runRootStream(command).map((output) {
       if (output.type == OutputType.exitCode && output.line == '0') {
         // Operation succeeded, refresh list to include new container
-        list().then(
+        refreshAll().then(
           (_) {},
           onError: (e) => CommandController.logger.w(
-            'Failed to refresh list after create: $e',
+            'Failed to refresh lists after create: $e',
           ),
         );
       }
@@ -216,10 +261,10 @@ class DboxController extends GetxController {
     yield* CommandController.runRootStream(command).map((output) {
       if (output.type == OutputType.exitCode && output.line == '0') {
         // Operation succeeded, refresh status to update list
-        status(name).then(
+        refreshAll().then(
           (_) {},
           onError: (e) => CommandController.logger.w(
-            'Failed to refresh status after recreate: $e',
+            'Failed to refresh lists after recreate: $e',
           ),
         );
       }
@@ -234,10 +279,10 @@ class DboxController extends GetxController {
     yield* CommandController.runRootStream(command).map((output) {
       if (output.type == OutputType.exitCode && output.line == '0') {
         // Operation succeeded, refresh status to update list
-        status(name).then(
+        refreshAll().then(
           (_) {},
           onError: (e) => CommandController.logger.w(
-            'Failed to refresh status after start: $e',
+            'Failed to refresh lists after start: $e',
           ),
         );
       }
@@ -252,10 +297,10 @@ class DboxController extends GetxController {
     yield* CommandController.runRootStream(command).map((output) {
       if (output.type == OutputType.exitCode && output.line == '0') {
         // Operation succeeded, refresh status to update list
-        status(name).then(
+        refreshAll().then(
           (_) {},
           onError: (e) => CommandController.logger.w(
-            'Failed to refresh status after stop: $e',
+            'Failed to refresh lists after stop: $e',
           ),
         );
       }
@@ -266,7 +311,7 @@ class DboxController extends GetxController {
   Future<ContainerStatus> status(String name) async {
     final configPath = getConfigPath();
     final command =
-        'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox status $name';
+        'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox status $name --json';
     final result = await CommandController.runRoot(command);
 
     if (result.exitCode != 0) {
@@ -274,27 +319,41 @@ class DboxController extends GetxController {
       throw Exception('Container status failed for $name');
     }
 
-    final status = ContainerStatus.fromOutput(result.outputs);
+    try {
+      final outputLines = result.outputs
+          .where((output) => output.type == OutputType.stdout)
+          .map((output) => output.line)
+          .join('\n');
+      
+      if (outputLines.isNotEmpty) {
+        final Map<String, dynamic> jsonMap = jsonDecode(outputLines);
+        final status = ContainerStatus.fromJson(jsonMap);
 
-    // Update the container in the list if it exists
-    final index = containers.indexWhere((c) => c.name == name);
-    if (index != -1) {
-      final updatedContainer = ContainerInfo(
-        name: containers[index].name,
-        image: containers[index].image,
-        state: status.status,
-        created: containers[index].created,
-      );
-      containers[index] = updatedContainer;
+        // Update the container in the list if it exists
+        final index = containers.indexWhere((c) => c.name == name);
+        if (index != -1) {
+          final updatedContainer = ContainerInfo(
+            name: containers[index].name,
+            image: containers[index].image,
+            state: status.status,
+            created: containers[index].created,
+          );
+          containers[index] = updatedContainer;
+        }
+
+        return status;
+      }
+    } catch (e) {
+      CommandController.logger.e('Failed to parse JSON container status: $e');
     }
 
-    return status;
+    throw Exception('Failed to parse container status for $name');
   }
 
-  Future<String> getContainerInfo(String name) async {
+  Future<Map<String, dynamic>> getContainerInfo(String name) async {
     final configPath = getConfigPath();
     final command =
-        'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox info $name';
+        'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox info $name --json';
     final result = await CommandController.runRoot(command);
 
     if (result.exitCode != 0) {
@@ -302,13 +361,20 @@ class DboxController extends GetxController {
       throw Exception('Container info failed for $name');
     }
 
-    // Combine all output lines into a single string
-    final outputLines = result.outputs
-        .where((output) => output.type == OutputType.stdout)
-        .map((output) => output.line)
-        .toList();
+    try {
+      final outputLines = result.outputs
+          .where((output) => output.type == OutputType.stdout)
+          .map((output) => output.line)
+          .join('\n');
+      
+      if (outputLines.isNotEmpty) {
+        return jsonDecode(outputLines);
+      }
+    } catch (e) {
+      CommandController.logger.e('Failed to parse JSON container info: $e');
+    }
 
-    return outputLines.join('\n');
+    throw Exception('Failed to parse container info for $name');
   }
 
   Stream<CommandOutput> delete(String name) async* {
@@ -319,6 +385,13 @@ class DboxController extends GetxController {
       if (output.type == OutputType.exitCode && output.line == '0') {
         // Operation succeeded, remove from list
         containers.removeWhere((c) => c.name == name);
+        // Also refresh volumes in case any volumes were cleaned up
+        listVolumes().then(
+          (_) {},
+          onError: (e) => CommandController.logger.w(
+            'Failed to refresh volumes after delete: $e',
+          ),
+        );
       }
       return output;
     });
@@ -362,5 +435,99 @@ class DboxController extends GetxController {
 
     Logger().i('Starting PTY with shell command: su -c \\"$command\\"');
     return Pty.start("sh", arguments: ["-c", command]);
+  }
+
+  Future<CommandResult> createVolume(
+    String name, [
+    String driver = 'local',
+  ]) async {
+    final configPath = getConfigPath();
+    final command =
+        'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox volume create --driver $driver $name';
+    final result = await CommandController.runRoot(command);
+
+    if (result.exitCode == 0) {
+      CommandController.logger.i('Successfully created volume: $name');
+      // Refresh volumes list after successful creation
+      listVolumes().then(
+        (_) {},
+        onError: (e) => CommandController.logger.w(
+          'Failed to refresh volumes after create: $e',
+        ),
+      );
+    } else {
+      CommandController.logger.e('Failed to create volume: $name');
+    }
+
+    return result;
+  }
+
+  Future<CommandResult> removeVolume(String name, {bool force = false}) async {
+    final configPath = getConfigPath();
+    final forceFlag = force ? ' -f' : '';
+    final command =
+        'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox volume remove$forceFlag $name';
+    final result = await CommandController.runRoot(command);
+
+    if (result.exitCode == 0) {
+      // Remove from local list and refresh
+      volumes.removeWhere((v) => v.name == name);
+    }
+
+    return result;
+  }
+
+  Future<Map<String, dynamic>> inspectVolume(String name) async {
+    final configPath = getConfigPath();
+    final command =
+        'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox volume inspect $name --json';
+    final result = await CommandController.runRoot(command);
+
+    if (result.exitCode != 0) {
+      CommandController.logger.e('Failed to inspect volume: $name');
+      throw Exception('Volume inspect failed for $name');
+    }
+
+    try {
+      final outputLines = result.outputs
+          .where((output) => output.type == OutputType.stdout)
+          .map((output) => output.line)
+          .join('\n');
+      
+      if (outputLines.isNotEmpty) {
+        return jsonDecode(outputLines);
+      }
+    } catch (e) {
+      CommandController.logger.e('Failed to parse JSON volume inspect: $e');
+    }
+
+    throw Exception('Failed to parse volume inspect for $name');
+  }
+
+  Future<Map<String, dynamic>> getSystemInfo() async {
+    final configPath = getConfigPath();
+    final command =
+        'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox info --json';
+    final result = await CommandController.runRoot(command);
+
+    if (result.exitCode != 0) {
+      CommandController.logger.e('Failed to get system info');
+      throw Exception('System info failed');
+    }
+
+    try {
+      final outputLines = result.outputs
+          .where((output) => output.type == OutputType.stdout)
+          .map((output) => output.line)
+          .join('\n');
+      
+      if (outputLines.isNotEmpty) {
+        return jsonDecode(outputLines);
+      }
+    } catch (e) {
+      CommandController.logger.e('Failed to parse JSON system info: $e');
+    }
+
+    throw Exception('Failed to parse system info');
   }
 }

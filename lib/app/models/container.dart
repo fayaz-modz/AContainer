@@ -6,6 +6,7 @@ enum ContainerState {
   created,
   running,
   stopped,
+  exited,
   unknown;
 
   String get displayName {
@@ -20,6 +21,8 @@ enum ContainerState {
         return 'RUNNING';
       case stopped:
         return 'STOPPED';
+      case exited:
+        return 'EXITED';
       case unknown:
         return 'UNKNOWN';
     }
@@ -50,6 +53,15 @@ class ContainerInfo {
       image: parts[1],
       state: parseStatus(parts[2]),
       created: parts[3],
+    );
+  }
+
+  factory ContainerInfo.fromJson(Map<String, dynamic> json) {
+    return ContainerInfo(
+      name: json['CONTAINER_NAME'] ?? '',
+      image: json['IMAGE'] ?? '',
+      state: parseStatus(json['STATUS'] ?? ''),
+      created: json['CREATED'] ?? '',
     );
   }
 
@@ -119,6 +131,15 @@ class ContainerStatus {
       status: status,
       image: image,
       logFile: logFile,
+    );
+  }
+
+  factory ContainerStatus.fromJson(Map<String, dynamic> json) {
+    return ContainerStatus(
+      name: json['container'] ?? '',
+      status: ContainerInfo.parseStatus(json['status'] ?? ''),
+      image: json['image'],
+      logFile: json['log_file'],
     );
   }
 }

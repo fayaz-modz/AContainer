@@ -441,6 +441,8 @@ class ContainerDetailView extends GetView<ContainerDetailController> {
         return Colors.green;
       case ContainerState.stopped:
         return colorScheme.error;
+      case ContainerState.exited:
+        return colorScheme.error;
       case ContainerState.creating:
         return Colors.orange;
       case ContainerState.ready:

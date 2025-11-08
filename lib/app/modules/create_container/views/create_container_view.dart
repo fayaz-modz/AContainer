@@ -25,6 +25,20 @@ class CreateContainerView extends GetView<CreateContainerController> {
         ],
       ),
       body: Obx(() {
+        // Show loading screen when loading data in edit mode
+        if (controller.isEditMode.value && controller.isLoading.value) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Loading container data...'),
+              ],
+            ),
+          );
+        }
+        
         // In edit mode, show single form based on current container type
         // In create mode, show tabbed view
         if (controller.isEditMode.value) {
@@ -53,6 +67,100 @@ class CreateContainerView extends GetView<CreateContainerController> {
           );
         }
       }),
+    );
+  }
+
+  void showCreateVolumeDialog(BuildContext context) {
+    final nameController = TextEditingController();
+    final isLoading = false.obs;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Create New Volume'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter a name for the new volume:'),
+            const SizedBox(height: 16),
+            Obx(
+              () => TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Volume Name',
+                  border: OutlineInputBorder(),
+                  hintText: 'my-data-volume',
+                ),
+                enabled: !isLoading.value,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: isLoading.value ? null : () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          Obx(
+            () => FilledButton(
+              onPressed: isLoading.value ? null : () async {
+                if (nameController.text.trim().isEmpty) {
+                  return;
+                }
+
+                final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(context);
+                final theme = Theme.of(context);
+                
+                isLoading.value = true;
+                try {
+                  final result = await controller.dboxController.createVolume(
+                    nameController.text.trim(),
+                  );
+
+                  if (result.exitCode == 0) {
+                    // Refresh volumes list
+                    await controller.refreshVolumes();
+                    
+                    // Add the newly created volume
+                    controller.addNamedVolume(nameController.text.trim());
+                    
+                    navigator.pop();
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Volume "${nameController.text.trim()}" created successfully'),
+                      ),
+                    );
+                  } else {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to create volume: ${result.outputs.map((o) => o.line).join(" ")}'),
+                        backgroundColor: theme.colorScheme.error,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Error creating volume: $e'),
+                      backgroundColor: theme.colorScheme.error,
+                    ),
+                  );
+                } finally {
+                  isLoading.value = false;
+                }
+              },
+              child: isLoading.value
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Create'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -151,7 +259,7 @@ class CreateContainerView extends GetView<CreateContainerController> {
                           Wrap(
                             spacing: 8,
                             runSpacing: 4,
-                            children: _buildPresetChips(type),
+                            children: buildPresetChips(type),
                           ),
                         ],
                       ),
@@ -344,90 +452,136 @@ class CreateContainerView extends GetView<CreateContainerController> {
 
               const SizedBox(height: 24),
 
-              // Volumes Section - Hide in edit mode (not supported by recreate)
-              Obx(
-                () => controller.isEditMode.value
-                    ? const SizedBox.shrink()
-                    : Column(
-                        children: [
-                          Text(
-                            'Volumes',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 8),
+               // Volumes Section
+               Column(
+                         children: [
+                           Text(
+                             'Volumes',
+                             style: Theme.of(context).textTheme.titleMedium
+                                 ?.copyWith(fontWeight: FontWeight.w600),
+                           ),
+                           const SizedBox(height: 8),
 
-                          // Volumes List
-                          Obx(
-                            () => Column(
-                              children: [
-                                for (
-                                  int i = 0;
-                                  i < controller.volumes.length;
-                                  i++
-                                )
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 8.0),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: TextFormField(
-                                            initialValue:
-                                                controller.volumes[i]['host'],
-                                            decoration: const InputDecoration(
-                                              labelText: 'Host Path',
-                                              border: OutlineInputBorder(),
-                                              isDense: true,
-                                              hintText: '/path/on/host',
+                            // Volume Selection Dropdown
+                            Obx(
+                              () => Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Add Volume Section
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: DropdownButtonFormField<String>(
+                                          decoration: const InputDecoration(
+                                            labelText: 'Add Volume',
+                                            border: OutlineInputBorder(),
+                                            prefixIcon: Icon(Icons.storage),
+                                            hintText: 'Select volume or add custom',
+                                          ),
+                                          items: [
+                                            const DropdownMenuItem(
+                                              value: 'custom',
+                                              child: Text('Custom Bind Mount'),
                                             ),
-                                            onChanged: (value) => controller
-                                                .updateVolumeHost(i, value),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: TextFormField(
-                                            initialValue: controller
-                                                .volumes[i]['container'],
-                                            decoration: const InputDecoration(
-                                              labelText: 'Container Path',
-                                              border: OutlineInputBorder(),
-                                              isDense: true,
-                                              hintText: '/path/in/container',
+                                            const DropdownMenuItem(
+                                              value: 'create',
+                                              child: Text('Create New Volume'),
                                             ),
-                                            onChanged: (value) => controller
-                                                .updateVolumeContainer(
-                                                  i,
-                                                  value,
-                                                ),
-                                          ),
+                                             ...controller.availableVolumes.map((volume) {
+                                               return DropdownMenuItem(
+                                                 value: volume.name,
+                                                 child: Text('${volume.name} (named volume)'),
+                                               );
+                                             }),
+                                          ],
+                                          onChanged: (value) {
+                                            if (value != null) {
+                                              if (value == 'custom') {
+                                                controller.addCustomVolume();
+                                              } else if (value == 'create') {
+                                                showCreateVolumeDialog(context);
+                                              } else {
+                                                controller.addNamedVolume(value);
+                                              }
+                                            }
+                                          },
                                         ),
-                                        const SizedBox(width: 8),
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.remove_circle,
-                                            color: Colors.red,
-                                          ),
-                                          onPressed: () =>
-                                              controller.removeVolume(i),
-                                          tooltip: 'Remove',
-                                        ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
-                                const SizedBox(height: 8),
-                                OutlinedButton.icon(
-                                  onPressed: controller.addVolume,
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('Add Volume'),
-                                ),
-                              ],
+                                  const SizedBox(height: 16),
+
+                                  // Volumes List
+                                  if (controller.volumes.isNotEmpty) ...[
+                                    Text(
+                                      'Selected Volumes',
+                                      style: Theme.of(context).textTheme.labelLarge
+                                          ?.copyWith(fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    ...controller.volumes.asMap().entries.map((entry) {
+                                      final index = entry.key;
+                                      final volume = entry.value;
+                                      final isNamedVolume = controller.availableVolumes
+                                          .any((v) => v.name == volume['host']);
+                                      
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 8.0),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: TextFormField(
+                                                initialValue: volume['host'],
+                                                decoration: InputDecoration(
+                                                  labelText: isNamedVolume ? 'Volume Name' : 'Host Path',
+                                                  border: const OutlineInputBorder(),
+                                                  isDense: true,
+                                                  hintText: isNamedVolume ? 'volume-name' : '/path/on/host',
+                                                  prefixIcon: isNamedVolume 
+                                                      ? const Icon(Icons.storage)
+                                                      : const Icon(Icons.folder),
+                                                ),
+                                                readOnly: isNamedVolume,
+                                                onChanged: (value) => controller
+                                                    .updateVolumeHost(index, value),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: TextFormField(
+                                                initialValue: volume['container'],
+                                                decoration: const InputDecoration(
+                                                  labelText: 'Container Path',
+                                                  border: OutlineInputBorder(),
+                                                  isDense: true,
+                                                  hintText: '/path/in/container',
+                                                ),
+                                                onChanged: (value) => controller
+                                                    .updateVolumeContainer(index, value),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.remove_circle,
+                                                color: Colors.red,
+                                              ),
+                                              onPressed: () =>
+                                                  controller.removeVolume(index),
+                                              tooltip: 'Remove',
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }),
+                                    const SizedBox(height: 8),
+                                  ],
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-                      ),
-              ),
+                           const SizedBox(height: 24),
+                         ],
+                       ),
 
               // Advanced/Override Settings Toggle
               Obx(
@@ -452,7 +606,7 @@ class CreateContainerView extends GetView<CreateContainerController> {
               // Advanced/Override Settings Section
               Obx(
                 () => controller.showAdvanced.value
-                    ? _buildAdvancedSettings(type, context)
+                    ? buildAdvancedSettings(type, context)
                     : const SizedBox.shrink(),
               ),
 
@@ -574,7 +728,7 @@ class CreateContainerView extends GetView<CreateContainerController> {
     );
   }
 
-  List<Widget> _buildPresetChips(ContainerType type) {
+  List<Widget> buildPresetChips(ContainerType type) {
     if (type == ContainerType.vm) {
       return CreateContainerController.vmPresets.entries.map((entry) {
         return ActionChip(
@@ -596,7 +750,7 @@ class CreateContainerView extends GetView<CreateContainerController> {
     }
   }
 
-  Widget _buildAdvancedSettings(ContainerType type, BuildContext context) {
+  Widget buildAdvancedSettings(ContainerType type, BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

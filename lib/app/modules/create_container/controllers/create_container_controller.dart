@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:acontainer/app/controllers/dbox_controller.dart';
 import 'package:acontainer/app/views/creation_logs_view.dart';
 import 'package:acontainer/app/controllers/command_controller.dart';
+import 'package:acontainer/app/models/volume.dart';
 
 enum ContainerType { service, vm }
 
@@ -397,6 +398,9 @@ class CreateContainerController extends GetxController {
   }
 
   Future<void> _loadContainerData(String containerName) async {
+    isLoading.value = true;
+    errorMessage.value = '';
+    
     try {
       // Get container info using dbox info command
       final infoOutput = await dboxController.getContainerInfo(containerName);
@@ -405,31 +409,19 @@ class CreateContainerController extends GetxController {
       _parseContainerInfo(infoOutput);
     } catch (e) {
       errorMessage.value = 'Failed to load container data: ${e.toString()}';
+    } finally {
+      isLoading.value = false;
     }
   }
 
-  void _parseContainerInfo(String infoOutput) {
-    final lines = infoOutput.split('\n');
-    String? currentImage;
-    String? currentInit;
-    bool currentPrivileged = false;
-    String? currentNetwork;
-    bool currentTTY = false;
-
-    // Parse basic info
-    for (final line in lines) {
-      if (line.startsWith('  Image: ')) {
-        currentImage = line.substring(9).trim();
-      } else if (line.startsWith('  Privileged: ')) {
-        currentPrivileged = line.substring(13).trim() == 'true';
-      } else if (line.startsWith('  Network Namespace: ')) {
-        currentNetwork = line.substring(20).trim();
-      } else if (line.startsWith('  TTY: ')) {
-        currentTTY = line.substring(6).trim() == 'true';
-      } else if (line.startsWith('  Init Process: ')) {
-        currentInit = line.substring(15).trim();
-      }
-    }
+  void _parseContainerInfo(Map<String, dynamic> infoOutput) {
+    // Parse basic info from JSON
+    final currentImage = infoOutput['image'] as String?;
+    final currentInit = infoOutput['init_process'] as String?;
+    final currentPrivileged = infoOutput['privileged'] as bool? ?? false;
+    final currentNetwork = infoOutput['network_namespace'] as String?;
+    final currentTTY = infoOutput['tty'] as bool? ?? false;
+    final currentVolumes = infoOutput['volumes'] as List<dynamic>? ?? [];
 
     // Determine container type based on settings
     if (currentPrivileged && currentTTY) {
@@ -486,56 +478,19 @@ class CreateContainerController extends GetxController {
       }
     }
 
-    if (currentInit != null) {
-      initController.text = currentInit;
-      // Try to match with predefined init types
-      bool foundMatch = false;
-      for (final entry in predefinedInits.entries) {
-        if (entry.value == currentInit) {
-          if (containerType.value == ContainerType.vm) {
-            vmInitType.value = entry.key;
-          } else {
-            initType.value = entry.key;
-          }
-          foundMatch = true;
-          break;
+    // Parse volumes
+    volumes.clear();
+    for (final volume in currentVolumes) {
+      if (volume is String) {
+        // Parse volume string in format "host_path:container_path" or "volume_name:container_path"
+        final parts = volume.split(':');
+        if (parts.length >= 2) {
+          volumes.add({
+            'host': parts[0],
+            'container': parts[1],
+          });
         }
       }
-      if (!foundMatch) {
-        if (containerType.value == ContainerType.vm) {
-          vmInitType.value = 'custom';
-        } else {
-          initType.value = 'custom';
-        }
-      }
-    }
-
-    privileged.value = currentPrivileged;
-    tty.value = currentTTY;
-
-    if (currentNetwork != null) {
-      if (currentNetwork == 'host') {
-        networkType.value = 'host';
-      } else {
-        networkType.value = 'custom';
-        customNetworkController.text = currentNetwork;
-      }
-    }
-
-    // If no init process in info, set to 'none'
-    if (currentInit == null) {
-      if (containerType.value == ContainerType.vm) {
-        vmInitType.value = 'none';
-      } else {
-        initType.value = 'none';
-      }
-    }
-
-    // Determine container type based on settings
-    if (currentPrivileged && currentTTY) {
-      containerType.value = ContainerType.vm;
-    } else {
-      containerType.value = ContainerType.service;
     }
   }
 
@@ -569,5 +524,21 @@ class CreateContainerController extends GetxController {
     // Reset form states
     serviceFormKey.currentState?.reset();
     vmFormKey.currentState?.reset();
+  }
+
+  Future<void> refreshVolumes() async {
+    await dboxController.listVolumes();
+  }
+
+  List<VolumeInfo> get availableVolumes {
+    return dboxController.volumes;
+  }
+
+  void addCustomVolume() {
+    volumes.add({'host': '', 'container': ''});
+  }
+
+  void addNamedVolume(String volumeName) {
+    volumes.add({'host': volumeName, 'container': ''});
   }
 }

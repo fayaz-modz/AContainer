@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:acontainer/app/controllers/dbox_controller.dart';
 import 'package:acontainer/app/theme/terminal_theme_controller.dart';
 import 'package:acontainer/app/utils/logger.dart';
+import 'package:acontainer/app/models/container.dart';
+import 'package:acontainer/app/controllers/terminal_session_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pty/flutter_pty.dart';
 import 'package:get/get.dart';
@@ -128,6 +130,49 @@ class TerminalController extends GetxController {
             );
             isConnected.value = false;
             _pty = null;
+            
+            // Update container state to exited if this is a container session
+            if (containerName.value.isNotEmpty) {
+              // Find and update the container in the dbox controller
+              final dboxController = Get.find<DboxController>();
+              final containerIndex = dboxController.containers.indexWhere(
+                (c) => c.name == containerName.value,
+              );
+              if (containerIndex != -1) {
+                final updatedContainer = ContainerInfo(
+                  name: dboxController.containers[containerIndex].name,
+                  image: dboxController.containers[containerIndex].image,
+                  state: ContainerState.exited,
+                  created: dboxController.containers[containerIndex].created,
+                );
+                dboxController.containers[containerIndex] = updatedContainer;
+              }
+            } else {
+              // Handle system shell session state update
+              final sessionController = Get.find<TerminalSessionController>();
+              final systemSession = sessionController.sessions.values.firstWhere(
+                (session) => session.container.name == 'System Shell',
+                orElse: () => throw Exception('System Shell session not found'),
+              );
+              
+              // Update the system shell session container state
+              final updatedSystemContainer = ContainerInfo(
+                name: 'System Shell',
+                image: 'system',
+                state: ContainerState.exited,
+                created: systemSession.container.created,
+              );
+              
+              // Update the session with new container state
+              final sessionId = sessionController.sessions.keys.firstWhere(
+                (key) => sessionController.sessions[key] == systemSession,
+              );
+              sessionController.sessions[sessionId] = TerminalSession(
+                id: systemSession.id,
+                container: updatedSystemContainer,
+                controller: systemSession.controller,
+              );
+            }
           })
           .catchError((error) {
             logger.e('PTY exit error: $error');

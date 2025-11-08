@@ -26,9 +26,9 @@ class HomeController extends GetxController {
 
   Future<void> loadContainers() async {
     try {
-      await dbox.list();
+      await dbox.refreshAll();
     } catch (e) {
-      logger.e('Failed to load containers: $e');
+      logger.e('Failed to load containers and volumes: $e');
     }
   }
 
