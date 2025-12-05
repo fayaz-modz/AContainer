@@ -336,6 +336,11 @@ class TerminalSettingsView extends StatelessWidget {
                       '\x1b[33m-rwxr-xr-x\x1b[0m  1 user user 1024 Nov  5 09:15 script.sh\r\n'
                       '\x1b[32m\$ \x1b[0m',
                     ),
+                    textStyle: xterm.TerminalStyle(
+                      fontSize: 16,
+                      fontFamily: 'JetBrains Mono',
+                      ligatures: true,
+                    ),
                     theme: controller.terminalTheme,
                     hardwareKeyboardOnly: true,
                   ),

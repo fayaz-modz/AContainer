@@ -65,7 +65,7 @@ class ContainerInfo {
     );
   }
 
-  static parseStatus(String status) {
+  static ContainerState parseStatus(String status) {
     switch (status.toLowerCase()) {
       case 'creating':
         return ContainerState.creating;

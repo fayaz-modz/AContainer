@@ -87,6 +87,7 @@ class TerminalView extends GetView<TerminalController> {
                       textStyle: xterm.TerminalStyle(
                         fontSize: terminalController.fontSizeNotifier.value,
                         fontFamily: 'JetBrains Mono',
+                        ligatures: true,
                       ),
                       onSecondaryTapDown: (details, offset) async {
                         final selection =
