@@ -74,7 +74,7 @@ class TerminalController extends GetxController {
         terminal.write('Connecting to container ${containerName.value}...\r\n');
       }
 
-      // Start PTY - prioritize custom PTY over container name
+      // Start PTY - prioritize external PTY over custom PTY over container name
       if (pty.value.isNotEmpty) {
         // Use dbox attach method with container name and custom shell command
         _pty = dbox.attach(containerName.value, shell: pty.value);
@@ -260,7 +260,13 @@ class TerminalController extends GetxController {
           containerName.value = args['containerName'] as String;
         }
         if (args['pty'] != null) {
-          pty.value = args['pty'] as String? ?? '';
+          final ptyArg = args['pty'];
+          if (ptyArg is Pty) {
+            _pty = ptyArg;
+            pty.value = 'External PTY';
+          } else {
+            pty.value = ptyArg as String? ?? '';
+          }
         }
       }
 

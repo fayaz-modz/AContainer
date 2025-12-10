@@ -9,9 +9,23 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
 class DboxController extends GetxController {
+  static final DboxController _instance = DboxController._internal();
+  factory DboxController() => _instance;
+  DboxController._internal();
+
   final box = GetStorage();
   RxList<ContainerInfo> containers = <ContainerInfo>[].obs;
   RxList<VolumeInfo> volumes = <VolumeInfo>[].obs;
+
+  // PTY management for queues
+  final RxList<Pty> _activePtyOperations = <Pty>[].obs;
+  final RxList<Map<String, dynamic>> _startStopQueue =
+      <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> _deleteCreateQueue =
+      <Map<String, dynamic>>[].obs;
+
+  bool _isRefreshing = false;
+  static const Duration _refreshDelay = Duration(seconds: 2);
 
   String getRootPath() {
     return box.read("root_path") ?? "/data/acontainer";
@@ -43,7 +57,8 @@ class DboxController extends GetxController {
 
   Future<List<ContainerInfo>> list() async {
     final configPath = getConfigPath();
-    final command = 'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox list --json';
+    final command =
+        'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox list --json';
 
     final result = await CommandController.runRoot(command);
 
@@ -58,7 +73,7 @@ class DboxController extends GetxController {
           .where((output) => output.type == OutputType.stdout)
           .map((output) => output.line)
           .join('\n');
-      
+
       if (outputLines.isNotEmpty) {
         final List<dynamic> jsonList = jsonDecode(outputLines);
         for (final item in jsonList) {
@@ -93,7 +108,7 @@ class DboxController extends GetxController {
           .where((output) => output.type == OutputType.stdout)
           .map((output) => output.line)
           .join('\n');
-      
+
       if (outputLines.isNotEmpty) {
         final List<dynamic> jsonList = jsonDecode(outputLines);
         for (final item in jsonList) {
@@ -114,168 +129,112 @@ class DboxController extends GetxController {
     await Future.wait([list(), listVolumes()]);
   }
 
-  Stream<CommandOutput> create({
-    String? name,
-    String? image,
-    bool? tty,
-    bool? privileged,
-    String? net,
-    int? memory,
-    int? memorySwap,
-    int? cpuShares,
-    int? cpuQuota,
-    int? cpuPeriod,
-    int? blkioWeight,
-    String? init,
-    String? containerConfig,
-    bool? noOverlayfs,
-    List<String>? env,
-    List<String>? dns,
-    List<String>? volumes,
-  }) async* {
-    final configPath = getConfigPath();
-    final commandParts = [
-      'DBOX_CONFIG=$configPath',
-      '${getRootPath()}/bin/dbox',
-      'create',
-    ];
+  // PTY Queue Management
+  void _enqueueStartStopOperation(String id, Pty pty) {
+    _startStopQueue.add({'id': id, 'pty': pty});
+    _processQueues();
+  }
 
-    if (name != null) commandParts.addAll(['--name', name]);
-    if (image != null) commandParts.addAll(['--image', image]);
-    if (tty == true) commandParts.add('--tty');
-    if (privileged == true) commandParts.add('--privileged');
-    if (net != null) commandParts.addAll(['--net', net]);
-    if (memory != null) commandParts.addAll(['--memory', memory.toString()]);
-    if (memorySwap != null) {
-      commandParts.addAll(['--memory-swap', memorySwap.toString()]);
-    }
-    if (cpuShares != null) {
-      commandParts.addAll(['--cpu-shares', cpuShares.toString()]);
-    }
-    if (cpuQuota != null) {
-      commandParts.addAll(['--cpu-quota', cpuQuota.toString()]);
-    }
-    if (cpuPeriod != null) {
-      commandParts.addAll(['--cpu-period', cpuPeriod.toString()]);
-    }
-    if (blkioWeight != null) {
-      commandParts.addAll(['--blkio-weight', blkioWeight.toString()]);
-    }
-    if (init != null) commandParts.addAll(['--init', init]);
-    if (containerConfig != null) {
-      commandParts.addAll(['--container-config', containerConfig]);
-    }
-    if (noOverlayfs == true) commandParts.add('--no-overlayfs');
+  void _enqueueDeleteCreateOperation(String id, Pty pty) {
+    _deleteCreateQueue.add({'id': id, 'pty': pty});
+    _processQueues();
+  }
 
-    for (final envVar in env ?? []) {
-      commandParts.addAll(['--env', envVar]);
+  void _processQueues() {
+    // Process start-stop queue (one at a time)
+    if (_startStopQueue.isNotEmpty && _activePtyOperations.isEmpty) {
+      final operation = _startStopQueue.removeAt(0);
+      _executePtyOperation(operation['id'], operation['pty']);
     }
 
-    for (final dnsServer in dns ?? []) {
-      commandParts.addAll(['--dns', dnsServer]);
+    // Process delete-create queue (one at a time)
+    if (_deleteCreateQueue.isNotEmpty && _activePtyOperations.isEmpty) {
+      final operation = _deleteCreateQueue.removeAt(0);
+      _executePtyOperation(operation['id'], operation['pty']);
+    }
+  }
+
+  void _executePtyOperation(String id, dynamic ptyData) {
+    final pty = ptyData as Pty;
+    _activePtyOperations.add(pty);
+
+    // Set up PTY completion handling
+    pty.exitCode
+        .then((exitCode) {
+          _onPtyCompleted(id, pty, exitCode == 0);
+        })
+        .catchError((error) {
+          _onPtyCompleted(id, pty, false);
+        });
+
+    // Start processing queues again
+    _processQueues();
+  }
+
+  void _onPtyCompleted(String id, Pty pty, bool success) {
+    _activePtyOperations.remove(pty);
+
+    // Trigger refresh for create/delete operations
+    if (id.startsWith('create_') ||
+        id.startsWith('delete_') ||
+        id.startsWith('recreate_')) {
+      _scheduleRefresh();
     }
 
-    for (final volume in volumes ?? []) {
-      commandParts.addAll(['--volume', volume]);
-    }
+    // Continue processing queues
+    _processQueues();
+  }
 
-    final command = commandParts.join(' ');
-    yield* CommandController.runRootStream(command).map((output) {
-      if (output.type == OutputType.exitCode && output.line == '0') {
-        // Operation succeeded, refresh list to include new container
-        refreshAll().then(
-          (_) {},
-          onError: (e) => CommandController.logger.w(
-            'Failed to refresh lists after create: $e',
-          ),
-        );
-      }
-      return output;
+  void _scheduleRefresh() {
+    if (_isRefreshing) return;
+
+    _isRefreshing = true;
+    Future.delayed(_refreshDelay, () {
+      refreshAll()
+          .then((_) {
+            _isRefreshing = false;
+          })
+          .catchError((e) {
+            Logger().e('Failed to refresh after PTY operation: $e');
+            _isRefreshing = false;
+          });
     });
   }
 
-  Stream<CommandOutput> recreate(
-    String name, {
-    String? image,
-    bool? tty,
-    bool? privileged,
-    String? net,
-    int? memory,
-    int? memorySwap,
-    int? cpuShares,
-    int? cpuQuota,
-    int? cpuPeriod,
-    int? blkioWeight,
-    String? init,
-    String? containerConfig,
-    List<String>? env,
-    List<String>? dns,
-    List<String>? volumes,
-  }) async* {
-    final configPath = getConfigPath();
-    final commandParts = [
-      'DBOX_CONFIG=$configPath',
-      '${getRootPath()}/bin/dbox',
-      'recreate',
-      name,
-    ];
-
-    if (image != null) commandParts.addAll(['--image', image]);
-    if (tty == true) commandParts.add('--tty');
-    if (privileged == true) commandParts.add('--privileged');
-    if (net != null) commandParts.addAll(['--net', net]);
-    if (memory != null) commandParts.addAll(['--memory', memory.toString()]);
-    if (memorySwap != null) {
-      commandParts.addAll(['--memory-swap', memorySwap.toString()]);
-    }
-    if (cpuShares != null) {
-      commandParts.addAll(['--cpu-shares', cpuShares.toString()]);
-    }
-    if (cpuQuota != null) {
-      commandParts.addAll(['--cpu-quota', cpuQuota.toString()]);
-    }
-    if (cpuPeriod != null) {
-      commandParts.addAll(['--cpu-period', cpuPeriod.toString()]);
-    }
-    if (blkioWeight != null) {
-      commandParts.addAll(['--blkio-weight', blkioWeight.toString()]);
-    }
-    if (init != null) commandParts.addAll(['--init', init]);
-    if (containerConfig != null) {
-      commandParts.addAll(['--container-config', containerConfig]);
+  // Public methods to kill PTYs
+  void killPtyOperation(String id) {
+    final startStopOp = _startStopQueue.firstWhereOrNull(
+      (op) => op['id'] == id,
+    );
+    if (startStopOp != null) {
+      (startStopOp['pty'] as Pty).kill();
+      _startStopQueue.removeWhere((op) => op['id'] == id);
     }
 
-    for (final envVar in env ?? []) {
-      commandParts.addAll(['--env', envVar]);
+    final deleteCreateOp = _deleteCreateQueue.firstWhereOrNull(
+      (op) => op['id'] == id,
+    );
+    if (deleteCreateOp != null) {
+      (deleteCreateOp['pty'] as Pty).kill();
+      _deleteCreateQueue.removeWhere((op) => op['id'] == id);
     }
 
-    for (final dnsServer in dns ?? []) {
-      commandParts.addAll(['--dns', dnsServer]);
+    final activeOp = _activePtyOperations.firstWhereOrNull((pty) => pty == pty);
+    if (activeOp != null) {
+      activeOp.kill();
+      _activePtyOperations.remove(activeOp);
     }
-
-    for (final volume in volumes ?? []) {
-      commandParts.addAll(['--volume', volume]);
-    }
-
-    final command = commandParts.join(' ');
-    yield* CommandController.runRootStream(command).map((output) {
-      if (output.type == OutputType.exitCode && output.line == '0') {
-        // Operation succeeded, refresh status to update list
-        refreshAll().then(
-          (_) {},
-          onError: (e) => CommandController.logger.w(
-            'Failed to refresh lists after recreate: $e',
-          ),
-        );
-      }
-      return output;
-    });
   }
 
   Stream<CommandOutput> start(String name) async* {
     final configPath = getConfigPath();
     final command =
         'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox start $name -d --verbose';
+
+    final pty = Pty.start("su", arguments: ["-c", command]);
+    final operationId = 'start_${DateTime.now().millisecondsSinceEpoch}';
+    _enqueueStartStopOperation(operationId, pty);
+
     yield* CommandController.runRootStream(command).map((output) {
       if (output.type == OutputType.exitCode && output.line == '0') {
         // Operation succeeded, refresh status to update list
@@ -294,6 +253,11 @@ class DboxController extends GetxController {
     final configPath = getConfigPath();
     final command =
         'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox stop $name';
+
+    final pty = Pty.start("su", arguments: ["-c", command]);
+    final operationId = 'stop_${DateTime.now().millisecondsSinceEpoch}';
+    _enqueueStartStopOperation(operationId, pty);
+
     yield* CommandController.runRootStream(command).map((output) {
       if (output.type == OutputType.exitCode && output.line == '0') {
         // Operation succeeded, refresh status to update list
@@ -324,7 +288,7 @@ class DboxController extends GetxController {
           .where((output) => output.type == OutputType.stdout)
           .map((output) => output.line)
           .join('\n');
-      
+
       if (outputLines.isNotEmpty) {
         final Map<String, dynamic> jsonMap = jsonDecode(outputLines);
         final status = ContainerStatus.fromJson(jsonMap);
@@ -366,7 +330,7 @@ class DboxController extends GetxController {
           .where((output) => output.type == OutputType.stdout)
           .map((output) => output.line)
           .join('\n');
-      
+
       if (outputLines.isNotEmpty) {
         return jsonDecode(outputLines);
       }
@@ -381,6 +345,11 @@ class DboxController extends GetxController {
     final configPath = getConfigPath();
     final command =
         'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox delete $name';
+
+    final pty = Pty.start("su", arguments: ["-c", command]);
+    final operationId = 'delete_${DateTime.now().millisecondsSinceEpoch}';
+    _enqueueDeleteCreateOperation(operationId, pty);
+
     yield* CommandController.runRootStream(command).map((output) {
       if (output.type == OutputType.exitCode && output.line == '0') {
         // Operation succeeded, remove from list
@@ -411,6 +380,160 @@ class DboxController extends GetxController {
     yield* CommandController.runRootStream(command);
   }
 
+  Pty? createWithPTY({
+    String? name,
+    String? image,
+    bool? tty,
+    bool? privileged,
+    String? net,
+    int? memory,
+    int? memorySwap,
+    int? cpuShares,
+    int? cpuQuota,
+    int? cpuPeriod,
+    int? blkioWeight,
+    String? init,
+    String? containerConfig,
+    bool? noOverlayfs,
+    List<String>? env,
+    List<String>? dns,
+    List<String>? volumes,
+  }) {
+    final configPath = getConfigPath();
+
+    // Build full command: pull && create
+    final pullCommand =
+        'DBOX_CONFIG=$configPath ${getRootPath()}/bin/dbox pull $image';
+
+    final createCommandParts = [
+      'DBOX_CONFIG=$configPath',
+      '${getRootPath()}/bin/dbox',
+      'create',
+    ];
+
+    if (name != null) createCommandParts.addAll(['--name', name]);
+    if (image != null) createCommandParts.addAll(['--image', image]);
+    if (tty == true) createCommandParts.add('--tty');
+    if (privileged == true) createCommandParts.add('--privileged');
+    if (net != null) createCommandParts.addAll(['--net', net]);
+    if (memory != null) {
+      createCommandParts.addAll(['--memory', memory.toString()]);
+    }
+    if (memorySwap != null) {
+      createCommandParts.addAll(['--memory-swap', memorySwap.toString()]);
+    }
+    if (cpuShares != null) {
+      createCommandParts.addAll(['--cpu-shares', cpuShares.toString()]);
+    }
+    if (cpuQuota != null) {
+      createCommandParts.addAll(['--cpu-quota', cpuQuota.toString()]);
+    }
+    if (cpuPeriod != null) {
+      createCommandParts.addAll(['--cpu-period', cpuPeriod.toString()]);
+    }
+    if (blkioWeight != null) {
+      createCommandParts.addAll(['--blkio-weight', blkioWeight.toString()]);
+    }
+    if (init != null) createCommandParts.addAll(['--init', init]);
+    if (containerConfig != null) {
+      createCommandParts.addAll(['--container-config', containerConfig]);
+    }
+    if (noOverlayfs == true) createCommandParts.add('--no-overlayfs');
+
+    for (final envVar in env ?? []) {
+      createCommandParts.addAll(['--env', envVar]);
+    }
+
+    for (final dnsServer in dns ?? []) {
+      createCommandParts.addAll(['--dns', dnsServer]);
+    }
+
+    for (final volume in volumes ?? []) {
+      createCommandParts.addAll(['--volume', volume]);
+    }
+
+    final createCommand = createCommandParts.join(' ');
+    final fullCommand = '$pullCommand && $createCommand';
+
+    Logger().i('Starting PTY with container creation command: $fullCommand');
+    final pty = Pty.start("su", arguments: ["-c", fullCommand]);
+    final operationId = 'create_${DateTime.now().millisecondsSinceEpoch}';
+    _enqueueDeleteCreateOperation(operationId, pty);
+    return pty;
+  }
+
+  Pty? recreateWithPTY(
+    String name, {
+    bool? tty,
+    bool? privileged,
+    String? net,
+    int? memory,
+    int? memorySwap,
+    int? cpuShares,
+    int? cpuQuota,
+    int? cpuPeriod,
+    int? blkioWeight,
+    String? init,
+    String? containerConfig,
+    List<String>? env,
+    List<String>? dns,
+    List<String>? volumes,
+  }) {
+    final configPath = getConfigPath();
+    final commandParts = [
+      'DBOX_CONFIG=$configPath',
+      '${getRootPath()}/bin/dbox',
+      'recreate',
+      name,
+    ];
+
+    if (tty == true) commandParts.add('--tty');
+    if (privileged == true) commandParts.add('--privileged');
+    if (net != null) commandParts.addAll(['--net', net]);
+    if (memory != null) {
+      commandParts.addAll(['--memory', memory.toString()]);
+    }
+    if (memorySwap != null) {
+      commandParts.addAll(['--memory-swap', memorySwap.toString()]);
+    }
+    if (cpuShares != null) {
+      commandParts.addAll(['--cpu-shares', cpuShares.toString()]);
+    }
+    if (cpuQuota != null) {
+      commandParts.addAll(['--cpu-quota', cpuQuota.toString()]);
+    }
+    if (cpuPeriod != null) {
+      commandParts.addAll(['--cpu-period', cpuPeriod.toString()]);
+    }
+    if (blkioWeight != null) {
+      commandParts.addAll(['--blkio-weight', blkioWeight.toString()]);
+    }
+    if (init != null) commandParts.addAll(['--init', init]);
+    if (containerConfig != null) {
+      commandParts.addAll(['--container-config', containerConfig]);
+    }
+
+    for (final envVar in env ?? []) {
+      commandParts.addAll(['--env', envVar]);
+    }
+
+    for (final dnsServer in dns ?? []) {
+      commandParts.addAll(['--dns', dnsServer]);
+    }
+
+    for (final volume in volumes ?? []) {
+      commandParts.addAll(['--volume', volume]);
+    }
+
+    final command = commandParts.join(' ');
+
+    Logger().i('Starting PTY with container recreation command: $command');
+    final pty = Pty.start("su", arguments: ["-c", command]);
+    final operationId = 'recreate_${DateTime.now().millisecondsSinceEpoch}';
+    _enqueueDeleteCreateOperation(operationId, pty);
+    return pty;
+  }
+
   Pty? attach(String name, {String? shell}) {
     final configPath = getConfigPath();
     String command;
@@ -436,8 +559,6 @@ class DboxController extends GetxController {
     Logger().i('Starting PTY with shell command: $command');
     return Pty.start("su", arguments: ["-c", command]);
   }
-
-
 
   Future<CommandResult> createVolume(
     String name, [
@@ -495,7 +616,7 @@ class DboxController extends GetxController {
           .where((output) => output.type == OutputType.stdout)
           .map((output) => output.line)
           .join('\n');
-      
+
       if (outputLines.isNotEmpty) {
         return jsonDecode(outputLines);
       }
@@ -522,7 +643,7 @@ class DboxController extends GetxController {
           .where((output) => output.type == OutputType.stdout)
           .map((output) => output.line)
           .join('\n');
-      
+
       if (outputLines.isNotEmpty) {
         return jsonDecode(outputLines);
       }

@@ -136,25 +136,23 @@ class AboutView extends GetView<AboutController> {
               subtitle: const Text('View on GitHub'),
               trailing: const Icon(Icons.open_in_new),
               onTap: () =>
-                  _launchUrl('https://github.com/your-username/acontainer'),
+                  _launchUrl('https://github.com/fayaz-modz/acontainer'),
             ),
             ListTile(
               leading: const Icon(Icons.bug_report_outlined),
               title: const Text('Report Issues'),
               subtitle: const Text('Report bugs or request features'),
               trailing: const Icon(Icons.open_in_new),
-              onTap: () => _launchUrl(
-                'https://github.com/your-username/acontainer/issues',
-              ),
+              onTap: () =>
+                  _launchUrl('https://github.com/fayaz-modz/acontainer/issues'),
             ),
             ListTile(
               leading: const Icon(Icons.description_outlined),
               title: const Text('Documentation'),
               subtitle: const Text('View documentation'),
               trailing: const Icon(Icons.open_in_new),
-              onTap: () => _launchUrl(
-                'https://github.com/your-username/acontainer/wiki',
-              ),
+              onTap: () =>
+                  _launchUrl('https://github.com/fayaz-modz/acontainer/wiki'),
             ),
           ],
         ),

@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_pty/flutter_pty.dart';
 import 'package:get/get.dart';
 import 'package:acontainer/app/controllers/logs_controller.dart';
 import 'package:acontainer/app/controllers/command_controller.dart';
 import 'package:acontainer/app/controllers/dbox_controller.dart';
-import 'package:xterm/xterm.dart' as xterm;
+import 'package:acontainer/app/views/logs_view.dart';
 
 class CreationLogsView extends StatefulWidget {
   final String containerName;
-  final Stream<CommandOutput> creationStream;
+  final Stream<CommandOutput>? creationStream;
+  final Pty? creationPty;
 
   const CreationLogsView({
     super.key,
     required this.containerName,
-    required this.creationStream,
+    this.creationStream,
+    this.creationPty,
   });
 
   @override
@@ -33,24 +36,44 @@ class _CreationLogsViewState extends State<CreationLogsView> {
     logsController = LogsController();
     dboxController = Get.find<DboxController>();
 
-    // Start listening to the creation stream with completion and error callbacks
-    logsController.startCommandStream(
-      widget.creationStream,
-      onDone: () {
-        if (mounted) {
-          setState(() {
-            isCompleted = true;
-          });
-        }
-      },
-      onError: (error) {
-        if (mounted) {
-          setState(() {
-            errorMessage = error;
-          });
-        }
-      },
-    );
+    // Start listening to the creation stream or PTY with completion and error callbacks
+    if (widget.creationStream != null) {
+      logsController.startCommandStream(
+        widget.creationStream!,
+        onDone: () {
+          if (mounted) {
+            setState(() {
+              isCompleted = true;
+            });
+          }
+        },
+        onError: (error) {
+          if (mounted) {
+            setState(() {
+              errorMessage = error;
+            });
+          }
+        },
+      );
+    } else if (widget.creationPty != null) {
+      logsController.startPty(
+        widget.creationPty!,
+        onDone: () {
+          if (mounted) {
+            setState(() {
+              isCompleted = true;
+            });
+          }
+        },
+        onError: (error) {
+          if (mounted) {
+            setState(() {
+              errorMessage = error;
+            });
+          }
+        },
+      );
+    }
   }
 
   @override
@@ -77,13 +100,6 @@ class _CreationLogsViewState extends State<CreationLogsView> {
             TextButton(
               onPressed: () async {
                 Navigator.of(context).pop(true);
-                await _runInBackground();
-              },
-              child: const Text('Run in Background'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop(true);
                 await _cancelCreation();
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -106,59 +122,29 @@ class _CreationLogsViewState extends State<CreationLogsView> {
       logsController.write(
         '\x1b[33m--- Cancelling container creation ---\x1b[0m\n',
       );
+
+      // Kill PTY to stop creation process immediately
+      logsController.killPty();
+
       logsController.write(
-        '\x1b[33mStopping container "${widget.containerName}"...\x1b[0m\n',
+        '\x1b[32m--- Container creation cancelled ---\x1b[0m\n',
       );
 
-      // Run dbox stop to cancel the creation
-      final stopStream = dboxController.stop(widget.containerName);
-      stopStream.listen(
-        (output) {
-          if (output.type == OutputType.stdout) {
-            logsController.write('\x1b[32m${output.line}\x1b[0m\n');
-          } else if (output.type == OutputType.stderr) {
-            logsController.write('\x1b[31m${output.line}\x1b[0m\n');
-          }
-        },
-        onDone: () {
-          logsController.write(
-            '\x1b[32m--- Container creation cancelled ---\x1b[0m\n',
-          );
-          Future.delayed(const Duration(seconds: 1), () {
-            if (mounted) {
-              Navigator.of(context).pop();
-            }
-          });
-        },
-        onError: (error) {
-          logsController.write(
-            '\x1b[31mFailed to cancel creation: $error\x1b[0m\n',
-          );
-        },
-      );
+      // Navigate back immediately after cancellation
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      });
     } catch (e) {
       logsController.write('\x1b[31mError cancelling creation: $e\x1b[0m\n');
+      // Still navigate back on error
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      });
     }
-  }
-
-  Future<void> _runInBackground() async {
-    setState(() {
-      isInBackground = true;
-    });
-
-    logsController.write(
-      '\x1b[33m--- Container creation will continue in background ---\x1b[0m\n',
-    );
-    logsController.write(
-      '\x1b[33mYou can check the status from the home screen\x1b[0m\n',
-    );
-
-    // Navigate back to home after a short delay
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-    });
   }
 
   @override
@@ -186,11 +172,6 @@ class _CreationLogsViewState extends State<CreationLogsView> {
           ),
           actions: [
             if (!isCompleted && !isCancelled && !isInBackground) ...[
-              IconButton(
-                icon: const Icon(Icons.play_arrow),
-                onPressed: _runInBackground,
-                tooltip: 'Run in Background',
-              ),
               IconButton(
                 icon: const Icon(Icons.cancel, color: Colors.red),
                 onPressed: _cancelCreation,
@@ -272,17 +253,12 @@ class _CreationLogsViewState extends State<CreationLogsView> {
                 ),
               ),
 
-            // Terminal view
+            // Terminal view using LogsView
             Expanded(
-              child: Container(
-                color: Colors.black,
-                child: xterm.TerminalView(
-                  logsController.terminal,
-                  textStyle: xterm.TerminalStyle(
-                    fontSize: 12,
-                    fontFamily: 'JetBrains Mono',
-                  ),
-                ),
+              child: LogsView(
+                customController: logsController,
+                showAppBar:
+                    false, // Hide app bar since CreationLogsView has its own
               ),
             ),
           ],

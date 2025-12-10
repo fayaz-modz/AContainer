@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:acontainer/app/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -452,71 +454,104 @@ class ContainerDetailController extends GetxController {
         '\x1b[33mRecreating container "${containerName.value}"...\x1b[0m\n',
       );
 
+      final recreatePty = dboxController.recreateWithPTY(containerName.value);
+      if (recreatePty == null) {
+        isLoading.value = false;
+        return;
+      }
+
       bool recreateSucceeded = false;
+      String? streamError;
 
-      final recreateStream = dboxController.recreate(containerName.value);
+      StreamSubscription<Uint8List>? sub;
 
-      recreateStream.listen(
-        (output) {
-          String line = output.line;
+      final streamDoneCompleter = Completer<void>();
 
-          if (output.type == OutputType.stdout) {
-            logsController.write('$line\n');
-          } else if (output.type == OutputType.stderr) {
-            logsController.write('\x1b[31m$line\x1b[0m\n');
-          } else if (output.type == OutputType.exitCode) {
-            final exitCode = int.tryParse(output.line) ?? -1;
-            recreateSucceeded = (exitCode == 0);
+      sub = recreatePty.output.listen(
+        (Uint8List chunk) {
+          // Decode bytes to string (tolerant of malformed sequences)
+          final decoded = utf8.decode(chunk, allowMalformed: true);
 
-            if (recreateSucceeded) {
-              logsController.write(
-                '\x1b[32mContainer recreated successfully.\x1b[0m\n',
-              );
-            } else {
-              logsController.write(
-                '\x1b[31mContainer failed to recreate with exit code: $exitCode\x1b[0m\n',
-              );
-            }
-          }
+          // Write chunk directly to logs. PTY may already include color codes.
+          logsController.write(decoded);
         },
-        onError: (error) {
-          errorMessage.value = 'Error: $error';
-          logsController.write('\x1b[31mError: $error\x1b[0m\n');
-          isLoading.value = false;
+        onError: (error, stack) {
+          streamError = error?.toString() ?? 'Unknown stream error';
+          logsController.write('\x1b[31mStream error: $streamError\x1b[0m\n');
+
+          // Cancel subscription and mark done
+          sub?.cancel();
+          if (!streamDoneCompleter.isCompleted) {
+            streamDoneCompleter.complete();
+          }
         },
         onDone: () {
-          isLoading.value = false;
-          logsController.write(
-            '\x1b[32m--- Recreate command completed ---\x1b[0m\n',
-          );
-
-          // Refresh container status when recreate command completes
-          loadContainerStatus();
-
-          // If recreate succeeded, start logs stream if container is running/creating/ready
-          if (recreateSucceeded) {
-            Future.delayed(const Duration(milliseconds: 500), () {
-              final status = containerStatus.value;
-              if (status?.status == ContainerState.running) {
-                logsController.write(
-                  '\x1b[32mContainer is running. Streaming logs...\x1b[0m\n',
-                );
-                _startLogsStream();
-              } else if (status?.status == ContainerState.creating) {
-                logsController.write(
-                  '\x1b[33mContainer is being created. Streaming creation logs...\x1b[0m\n',
-                );
-                _startLogsStream();
-              } else if (status?.status == ContainerState.ready) {
-                logsController.write(
-                  '\x1b[36mContainer is ready. Streaming logs...\x1b[0m\n',
-                );
-                _startLogsStream();
-              }
-            });
+          if (!streamDoneCompleter.isCompleted) {
+            streamDoneCompleter.complete();
           }
         },
+        cancelOnError: true,
       );
+
+      // Wait for both stream completion and the exit code
+      try {
+        // Wait for stream to complete (or error)
+        await streamDoneCompleter.future;
+
+        // Now get the authoritative exit code
+        int exitcode;
+        try {
+          exitcode = await recreatePty.exitCode;
+        } catch (e) {
+          exitcode = -1;
+          logsController.write('\x1b[31mFailed to get exit code: $e\x1b[0m\n');
+        }
+
+        recreateSucceeded = (exitcode == 0);
+
+        if (recreateSucceeded) {
+          logsController.write(
+            '\n\x1b[32mContainer recreated successfully.\x1b[0m\n',
+          );
+          errorMessage.value = '';
+        } else {
+          logsController.write(
+            '\n\x1b[31mContainer failed to recreate with exit code: $exitcode\x1b[0m\n',
+          );
+          errorMessage.value = 'Failed to recreate container: $exitcode';
+        }
+      } finally {
+        // Ensure subscription is cancelled
+        await sub.cancel();
+
+        // Final completion log
+        logsController.write(
+          '\x1b[32m--- Recreate command completed ---\x1b[0m\n',
+        );
+
+        // Refresh container status
+        loadContainerStatus();
+
+        // If recreate succeeded, start logs stream after a short delay and only when appropriate
+        if (recreateSucceeded) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            final status = containerStatus.value;
+            if (status == null) return;
+
+            if (status.status == ContainerState.running ||
+                status.status == ContainerState.creating ||
+                status.status == ContainerState.ready) {
+              logsController.write(
+                '\x1b[32mContainer is ${status.status}. Streaming logs...\x1b[0m\n',
+              );
+              _startLogsStream();
+            }
+          });
+        }
+
+        // Ensure loading flag cleared exactly once
+        isLoading.value = false;
+      }
     } catch (e) {
       errorMessage.value = 'Failed to recreate container: $e';
       isLoading.value = false;

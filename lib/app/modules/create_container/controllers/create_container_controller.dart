@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_pty/flutter_pty.dart';
 import 'package:get/get.dart';
 import 'package:acontainer/app/controllers/dbox_controller.dart';
 import 'package:acontainer/app/views/creation_logs_view.dart';
-import 'package:acontainer/app/controllers/command_controller.dart';
 import 'package:acontainer/app/models/volume.dart';
 
 enum ContainerType { service, vm }
@@ -315,13 +315,13 @@ class CreateContainerController extends GetxController {
           ? null
           : int.tryParse(blkioWeightController.text.trim());
 
-      Stream<CommandOutput> createStream;
+      // Use PTY for both create and recreate operations
+      Pty? creationPty;
 
       if (isEditMode.value) {
-        // Recreate container using dbox (image is optional override)
-        createStream = dboxController.recreate(
+        // Recreate container using PTY (image is optional override)
+        creationPty = dboxController.recreateWithPTY(
           name,
-          image: image, // Can be null to keep original image
           tty: tty.value,
           privileged: privileged.value,
           net: network,
@@ -339,8 +339,8 @@ class CreateContainerController extends GetxController {
           dns: dnsServers,
         );
       } else {
-        // Create container using dbox
-        createStream = dboxController.create(
+        // Create container using PTY with pull && create
+        creationPty = dboxController.createWithPTY(
           name: name,
           image: image!,
           tty: tty.value,
@@ -363,11 +363,12 @@ class CreateContainerController extends GetxController {
         );
       }
 
-      // Navigate to creation logs page immediately
-      Get.to(
-        () =>
-            CreationLogsView(containerName: name, creationStream: createStream),
-      );
+      // Navigate to creation logs page immediately with PTY
+      if (creationPty != null) {
+        Get.to(
+          () => CreationLogsView(containerName: name, creationPty: creationPty),
+        );
+      }
     } catch (e) {
       errorMessage.value = 'Error: ${e.toString()}';
     } finally {
@@ -400,7 +401,7 @@ class CreateContainerController extends GetxController {
   Future<void> _loadContainerData(String containerName) async {
     isLoading.value = true;
     errorMessage.value = '';
-    
+
     try {
       // Get container info using dbox info command
       final infoOutput = await dboxController.getContainerInfo(containerName);
@@ -422,7 +423,8 @@ class CreateContainerController extends GetxController {
     final currentNetwork = infoOutput['network_namespace'] as String?;
     final currentTTY = infoOutput['tty'] as bool? ?? false;
     final currentVolumes = infoOutput['volumes'] as List<dynamic>? ?? [];
-    final currentEnvVars = infoOutput['environment_variables'] as List<dynamic>? ?? [];
+    final currentEnvVars =
+        infoOutput['environment_variables'] as List<dynamic>? ?? [];
 
     // Determine container type based on settings
     if (currentPrivileged && currentTTY) {
@@ -492,10 +494,7 @@ class CreateContainerController extends GetxController {
           });
         } else if (parts.length == 1) {
           // Handle case where there's no '=' (just a key)
-          envVars.add({
-            'key': parts[0],
-            'value': '',
-          });
+          envVars.add({'key': parts[0], 'value': ''});
         }
       }
     }
@@ -507,10 +506,7 @@ class CreateContainerController extends GetxController {
         // Parse volume string in format "host_path:container_path" or "volume_name:container_path"
         final parts = volume.split(':');
         if (parts.length >= 2) {
-          volumes.add({
-            'host': parts[0],
-            'container': parts[1],
-          });
+          volumes.add({'host': parts[0], 'container': parts[1]});
         }
       }
     }

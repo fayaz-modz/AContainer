@@ -1,5 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:acontainer/app/controllers/command_controller.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_pty/flutter_pty.dart';
 import 'package:get/get.dart';
 import 'package:xterm/xterm.dart' as xterm;
 
@@ -7,6 +10,8 @@ class LogsController extends GetxController {
   final terminal = xterm.Terminal();
   final isLoading = false.obs;
   final errorMessage = ''.obs;
+  Pty? _pty;
+  StreamSubscription? _ptySubscription;
 
   void clear() {
     // Send clear screen and reset signals
@@ -73,8 +78,57 @@ class LogsController extends GetxController {
     );
   }
 
+  void startPty(Pty pty, {VoidCallback? onDone, Function(String)? onError}) {
+    isLoading.value = true;
+    errorMessage.value = '';
+
+    _ptySubscription = pty.output
+        .cast<List<int>>()
+        .transform(const Utf8Decoder())
+        .listen(
+          (data) {
+            write(data);
+          },
+          onError: (error) {
+            errorMessage.value = 'Error: $error';
+            write('\x1b[31mError: $error\x1b[0m\n');
+            isLoading.value = false;
+            onError?.call(error.toString());
+            onDone?.call();
+          },
+          onDone: () {
+            isLoading.value = false;
+            write('\x1b[32m--- Process completed ---\x1b[0m\n');
+            onDone?.call();
+          },
+        );
+
+    terminal.onResize = (w, h, pw, ph) {
+      pty.resize(h, w);
+    };
+
+    // Set up input handling
+    terminal.onOutput = (data) {
+      pty.write(const Utf8Encoder().convert(data));
+    };
+  }
+
   void write(String line) {
     line = line.replaceAll('\n', '\r\n');
     terminal.write(line);
+  }
+
+  void killPty() {
+    _ptySubscription?.cancel();
+    _pty?.kill();
+    _pty = null;
+    _ptySubscription = null;
+    isLoading.value = false;
+  }
+
+  @override
+  void onClose() {
+    killPty();
+    super.onClose();
   }
 }

@@ -1,3 +1,6 @@
 [submodule "xterm.dart"]
 	path = xterm.dart
 	url = https://github.com/fayaz-modz/xterm.dart.git
+[submodule "dbox"]
+	path = dbox
+	url = https://github.com/fayaz-modz/dbox
