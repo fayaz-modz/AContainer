@@ -1,6 +1,6 @@
 {
-    "name": "acontainer",
-    "short_name": "acontainer",
+    "name": "AContainer",
+    "short_name": "AContainer",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
